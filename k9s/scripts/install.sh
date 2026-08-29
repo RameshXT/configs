@@ -109,6 +109,7 @@ cp "$TMP_DIR/wrapper.sh" "$K9S_CFG_DIR/wrapper.sh"
 {
   echo ""
   echo "$MARKER_START"
+  # shellcheck disable=SC2016
   echo 'export K9S_CONFIG_DIR="$HOME/.config/k9s"'
   echo 'source ~/.config/k9s/wrapper.sh'
   echo "$MARKER_END"
