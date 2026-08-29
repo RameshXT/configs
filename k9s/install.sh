@@ -93,7 +93,7 @@ ui_ok "Apply: Configured transparent skin and custom views in $K9S_CFG_DIR"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] updating config.yaml (skin reference only) ..."
 touch "$K9S_CFG_DIR/config.yaml"
-yq eval '.ui.skin = "transparent"' -i "$K9S_CFG_DIR/config.yaml"
+yq eval '.k9s.ui.skin = "transparent" | .k9s.skin = "transparent" | del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished updating config.yaml."
 ui_ok "Config: Updated k9s config.yaml to activate transparent skin"
 

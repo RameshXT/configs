@@ -75,7 +75,7 @@ ui_ok "Cleanup: Removed skin and custom view configurations"
 
 if [ -f "$K9S_CFG_DIR/config.yaml" ]; then
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] removing skin reference from config.yaml (file itself kept — has cluster data) ..."
-  yq eval 'del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml"
+  yq eval 'del(.k9s.ui.skin) | del(.k9s.skin) | del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml"
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing skin reference."
   ui_ok "Config: Removed skin reference from k9s config.yaml"
 fi
