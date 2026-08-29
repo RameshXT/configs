@@ -1,0 +1,25 @@
+[sso-session <YOUR_ORG_NAME>]
+sso_start_url = https://<YOUR_ORG_NAME>.awsapps.com/start
+sso_region = us-east-1
+sso_registration_scopes = sso:account:access
+
+[profile <YOUR_ORG_NAME>-lead]
+sso_session = <YOUR_ORG_NAME>
+sso_account_id = <YOUR_AWS_ACCOUNT_ID>
+sso_role_name = LeadUserAccess
+region = ap-south-1
+output = json
+
+[profile <YOUR_ORG_NAME>-power]
+sso_session = <YOUR_ORG_NAME>
+sso_account_id = <YOUR_AWS_ACCOUNT_ID>
+sso_role_name = PowerUserAccess
+region = ap-south-1
+output = json
+
+[profile <YOUR_ORG_NAME>-read]
+sso_session = <YOUR_ORG_NAME>
+sso_account_id = <YOUR_AWS_ACCOUNT_ID>
+sso_role_name = ReadOnlyAccess
+region = ap-south-1
+output = json
