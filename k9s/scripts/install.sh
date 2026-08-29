@@ -18,12 +18,12 @@ ui_done()  { echo -e "${GREEN}[DONE]${NC}: $1" >&3; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 # Auto-bootstrap if run via curl | bash
-if [ ! -f "$SCRIPT_DIR/transparent.yaml" ]; then
+if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
   ui_info "Bootstrapping k9s bundle from GitHub Releases (this may take a few seconds)..."
   TMP_BOOT="$(mktemp -d)"
   curl -# -fL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
   tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
-  bash "$TMP_BOOT/install.sh"
+  bash "$TMP_BOOT/scripts/install.sh"
   ret=$?
   rm -rf "$TMP_BOOT"
   exit $ret
@@ -68,11 +68,11 @@ mkdir -p "$K9S_CFG_DIR/skins"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] copying config files to $TMP_DIR from local bundle ..."
 
-cp "$SCRIPT_DIR/transparent.yaml" "$TMP_DIR/transparent.yaml" || { echo "[install] ERROR: failed to copy transparent.yaml" >&2; ui_error "Failed to copy transparent.yaml"; exit 1; }
+cp "$SCRIPT_DIR/../assets/transparent.yaml" "$TMP_DIR/transparent.yaml" || { echo "[install] ERROR: failed to copy transparent.yaml" >&2; ui_error "Failed to copy transparent.yaml"; exit 1; }
 
-cp "$SCRIPT_DIR/view.yaml" "$TMP_DIR/view.yaml" || { echo "[install] ERROR: failed to copy view.yaml" >&2; ui_error "Failed to copy view.yaml"; exit 1; }
+cp "$SCRIPT_DIR/../assets/view.yaml" "$TMP_DIR/view.yaml" || { echo "[install] ERROR: failed to copy view.yaml" >&2; ui_error "Failed to copy view.yaml"; exit 1; }
 
-cp "$SCRIPT_DIR/wrapper.sh" "$TMP_DIR/wrapper.sh" || { echo "[install] ERROR: failed to copy wrapper.sh" >&2; ui_error "Failed to copy wrapper.sh"; exit 1; }
+cp "$SCRIPT_DIR/../assets/wrapper.sh" "$TMP_DIR/wrapper.sh" || { echo "[install] ERROR: failed to copy wrapper.sh" >&2; ui_error "Failed to copy wrapper.sh"; exit 1; }
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished copying config files."
 ui_ok "Copying: Transferred configuration bundle to temporary directory"

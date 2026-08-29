@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "::group::Validate required files"
-          for file in k9s/transparent.yaml k9s/view.yaml k9s/wrapper.sh k9s/install.sh k9s/uninstall.sh k9s/README.md; do
+          for file in k9s/assets/transparent.yaml k9s/assets/view.yaml k9s/assets/wrapper.sh k9s/scripts/install.sh k9s/scripts/uninstall.sh k9s/README.md; do
             if [ ! -f "$file" ]; then
               echo "::error::missing file: $file"
               exit 1
@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
           echo "::group::ShellCheck"
           sudo apt-get update && sudo apt-get install -y shellcheck
-          shellcheck k9s/install.sh k9s/uninstall.sh
+          shellcheck k9s/scripts/install.sh k9s/scripts/uninstall.sh
           echo "::endgroup::"
 
       - name: Package k9s folder
@@ -84,12 +84,12 @@ jobs:
           
           ## Install
           ```bash
-          curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/install.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/install.sh | bash
           ```
           
           ## Uninstall
           ```bash
-          curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/uninstall.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/uninstall.sh | bash
           ```
           EOF
           
@@ -105,8 +105,8 @@ jobs:
           echo "Release URL: https://github.com/RameshXT/configs/releases/tag/custom-k9s"
           echo ""
           echo "INSTALL:"
-          echo "curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/install.sh | bash"
+          echo "curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/install.sh | bash"
           echo ""
           echo "UNINSTALL:"
-          echo "curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/uninstall.sh | bash"
+          echo "curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/uninstall.sh | bash"
           echo "::endgroup::"
