@@ -17,11 +17,13 @@ ui_done()  { echo -e "${GREEN}[DONE]${NC}: $1" >&3; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
-# Auto-bootstrap if run via curl | bash
 if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
-  ui_info "Bootstrapping k9s bundle from GitHub Releases (this may take a few seconds)..."
+  echo -e "" >&3
+  ui_info "Bootstrapping k9s bundle..."
+  echo -e "" >&3
   TMP_BOOT="$(mktemp -d)"
   curl -# -fL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
+  echo -e "" >&3
   tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
   bash "$TMP_BOOT/scripts/uninstall.sh"
   ret=$?
@@ -33,7 +35,7 @@ LOG_FILE="/tmp/k9s_uninstall.log"
 exec 1>"$LOG_FILE" 2>&1
 set -x
 
-ui_info "Starting k9s customization uninstallation. Detailed logs: $LOG_FILE"
+ui_info "Starting uninstallation. Logs: $LOG_FILE"
 
 echo -e -n "\n${YELLOW}Are you sure you want to uninstall k9s customizations? (y/n): ${NC}" >&3
 read -r response </dev/tty
@@ -63,21 +65,21 @@ fi
 echo $$ > "$LOCKFILE"
 trap 'rm -f "$LOCKFILE"' EXIT
 
-ui_ok "Locking: Checked if an install/uninstall is already running"
+ui_ok "Verified no overlapping installations"
 
 command -v yq >/dev/null 2>&1 || { echo "[uninstall] error: yq not found in PATH" >&2; ui_error "yq not found in PATH"; exit 1; }
-ui_ok "Dependencies: Verified yq is installed"
+ui_ok "Verified yq is installed"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] removing skin + views files ..."
 rm -f "$K9S_CFG_DIR/skins/transparent.yaml" "$K9S_CFG_DIR/views.yaml"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing skin + views files."
-ui_ok "Cleanup: Removed skin and custom view configurations"
+ui_ok "Removed custom skin and views"
 
 if [ -f "$K9S_CFG_DIR/config.yaml" ]; then
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] removing skin reference from config.yaml (file itself kept — has cluster data) ..."
   yq eval 'del(.k9s.ui.skin) | del(.k9s.skin) | del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml"
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing skin reference."
-  ui_ok "Config: Removed skin reference from k9s config.yaml"
+  ui_ok "Removed skin reference from config"
 fi
 
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
@@ -86,10 +88,10 @@ if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   cp "$BASHRC" "${BASHRC}.bak.${ts}"
   sed -i "/$MARKER_START/,/$MARKER_END/d" "$BASHRC"
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing wrapper block."
-  ui_ok "Wrapper: Removed k9s bash wrapper from ~/.bashrc"
+  ui_ok "Removed wrapper from ~/.bashrc"
 else
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] no wrapper block found in .bashrc, skipping"
-  ui_ok "Wrapper: No k9s bash wrapper found in ~/.bashrc, skipped"
+  ui_ok "Wrapper not found in ~/.bashrc"
 fi
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] verifying final state ..."
@@ -111,7 +113,7 @@ if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   exit 1
 fi
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] verification passed — all files confirmed removed."
-ui_ok "Verification: Confirmed all configurations are successfully removed"
+ui_ok "Clean state confirmed"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] done. Run: source ~/.bashrc"
 echo -e "\n${GREEN}[DONE]${NC}: Uninstallation complete!\n\nRun: source ~/.bashrc" >&3

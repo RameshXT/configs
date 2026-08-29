@@ -17,11 +17,13 @@ ui_done()  { echo -e "${GREEN}[DONE]${NC}: $1" >&3; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
-# Auto-bootstrap if run via curl | bash
 if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
-  ui_info "Bootstrapping k9s bundle from GitHub Releases (this may take a few seconds)..."
+  echo -e "" >&3
+  ui_info "Bootstrapping k9s bundle..."
+  echo -e "" >&3
   TMP_BOOT="$(mktemp -d)"
   curl -# -fL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
+  echo -e "" >&3
   tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
   bash "$TMP_BOOT/scripts/install.sh"
   ret=$?
@@ -33,7 +35,7 @@ LOG_FILE="/tmp/k9s_install.log"
 exec 1>"$LOG_FILE" 2>&1
 set -x
 
-ui_info "Starting k9s customization installation. Detailed logs: $LOG_FILE"
+ui_info "Starting installation. Logs: $LOG_FILE"
 
 K9S_CFG_DIR="$HOME/.config/k9s"
 TMP_DIR="$(mktemp -d)"
@@ -57,12 +59,12 @@ fi
 echo $$ > "$LOCKFILE"
 trap 'rm -f "$LOCKFILE"; rm -rf "$TMP_DIR"' EXIT
 
-ui_ok "Locking: Checked if an install is already running to prevent overlap"
+ui_ok "Checked for existing installations"
 
 command -v k9s >/dev/null 2>&1 || { echo "[install] error: k9s not found in PATH" >&2; ui_error "k9s not found in PATH"; exit 1; }
 command -v yq  >/dev/null 2>&1 || { echo "[install] error: yq not found in PATH" >&2; ui_error "yq not found in PATH"; exit 1; }
 
-ui_ok "Dependencies: Verified k9s and yq are installed"
+ui_ok "Verified dependencies"
 
 mkdir -p "$K9S_CFG_DIR/skins"
 
@@ -75,7 +77,7 @@ cp "$SCRIPT_DIR/../assets/view.yaml" "$TMP_DIR/view.yaml" || { echo "[install] E
 cp "$SCRIPT_DIR/../assets/wrapper.sh" "$TMP_DIR/wrapper.sh" || { echo "[install] ERROR: failed to copy wrapper.sh" >&2; ui_error "Failed to copy wrapper.sh"; exit 1; }
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished copying config files."
-ui_ok "Copying: Transferred configuration bundle to temporary directory"
+ui_ok "Copying: Bundle transferred"
 
 ts="$(date +%Y%m%d%H%M%S)"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] backing up existing files ..."
@@ -83,19 +85,19 @@ for f in "$K9S_CFG_DIR/skins/transparent.yaml" "$K9S_CFG_DIR/views.yaml"; do
   [ -f "$f" ] && cp "$f" "${f}.bak.${ts}"
 done
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished backing up existing files."
-ui_ok "Backup: Created timestamped backups of existing k9s configs"
+ui_ok "Backup: Existing configs backed up"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] applying skin + views ..."
 cp "$TMP_DIR/transparent.yaml" "$K9S_CFG_DIR/skins/transparent.yaml"
 cp "$TMP_DIR/view.yaml"        "$K9S_CFG_DIR/views.yaml"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished applying skin + views."
-ui_ok "Apply: Configured transparent skin and custom views in $K9S_CFG_DIR"
+ui_ok "Apply: Skin and views configured"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] updating config.yaml (skin reference only) ..."
 touch "$K9S_CFG_DIR/config.yaml"
 yq eval '.k9s.ui.skin = "transparent" | .k9s.skin = "transparent" | del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished updating config.yaml."
-ui_ok "Config: Updated k9s config.yaml to activate transparent skin"
+ui_ok "Config: Activated transparent skin"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] applying .bashrc wrapper (idempotent) ..."
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
@@ -110,7 +112,7 @@ fi
   echo "$MARKER_END"
 } >> "$BASHRC"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished applying .bashrc wrapper."
-ui_ok "Wrapper: Injected k9s read-only/write bash wrapper to ~/.bashrc"
+ui_ok "Wrapper: Injected to ~/.bashrc"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] verifying final state ..."
 for f in "$K9S_CFG_DIR/skins/transparent.yaml" "$K9S_CFG_DIR/views.yaml"; do
@@ -131,7 +133,7 @@ if ! grep -qF "$MARKER_START" "$BASHRC"; then
   exit 1
 fi
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] verification passed — all files confirmed present."
-ui_ok "Verification: Confirmed all files and configurations are actively in place"
+ui_ok "Verification: All files in place"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] done. Run: source ~/.bashrc"
 echo -e "\n${GREEN}[DONE]${NC}: Installation complete!\n\nRun: source ~/.bashrc" >&3
