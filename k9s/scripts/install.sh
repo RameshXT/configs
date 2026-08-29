@@ -50,7 +50,7 @@ if [ -e "$LOCKFILE" ]; then
     ui_error "Another install/uninstall is already running."
     exit 1
   else
-    echo "[install] WARNING: stale lockfile found (PID $LOCK_PID not running) — removing and continuing" >&2
+    echo "[install] WARNING: stale lockfile found (PID $LOCK_PID not running), removing and continuing" >&2
     ui_warn "Stale lockfile found and removed."
     rm -f "$LOCKFILE"
   fi
@@ -116,7 +116,7 @@ ui_ok "Wrapper: Injected to ~/.bashrc"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] verifying final state ..."
 for f in "$K9S_CFG_DIR/skins/transparent.yaml" "$K9S_CFG_DIR/views.yaml"; do
   if [ ! -s "$f" ]; then
-    echo "[install] FATAL: $f is missing or empty after install — installation did not complete correctly" >&2
+    echo "[install] FATAL: $f is missing or empty after install, installation did not complete correctly" >&2
     ui_error "Verification failed: $f is missing or empty"
     exit 1
   fi
@@ -131,7 +131,7 @@ if ! grep -qF "$MARKER_START" "$BASHRC"; then
   ui_error "Verification failed: wrapper block missing in ~/.bashrc"
   exit 1
 fi
-echo "$(date +'%Y-%m-%d %H:%M:%S') [install] verification passed — all files confirmed present."
+echo "$(date +'%Y-%m-%d %H:%M:%S') [install] verification passed, all files confirmed present."
 ui_ok "Verification: All files in place"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] done. Run: source ~/.bashrc"

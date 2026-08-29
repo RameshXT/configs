@@ -56,7 +56,7 @@ if [ -e "$LOCKFILE" ]; then
     ui_error "Another install/uninstall is already running."
     exit 1
   else
-    echo "[uninstall] WARNING: stale lockfile found (PID $LOCK_PID not running) — removing and continuing" >&2
+    echo "[uninstall] WARNING: stale lockfile found (PID $LOCK_PID not running), removing and continuing" >&2
     ui_warn "Stale lockfile found and removed."
     rm -f "$LOCKFILE"
   fi
@@ -75,7 +75,7 @@ echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing skin + views fi
 ui_ok "Removed custom skin and views"
 
 if [ -f "$K9S_CFG_DIR/config.yaml" ]; then
-  echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] removing skin reference from config.yaml (file itself kept — has cluster data) ..."
+  echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] removing skin reference from config.yaml (file itself kept, has cluster data) ..."
   yq eval 'del(.k9s.ui.skin) | del(.k9s.skin) | del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml"
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing skin reference."
   ui_ok "Removed skin reference from config"
@@ -111,7 +111,7 @@ if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   ui_error "Verification failed: wrapper block still present in ~/.bashrc"
   exit 1
 fi
-echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] verification passed — all files confirmed removed."
+echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] verification passed, all files confirmed removed."
 ui_ok "Clean state confirmed"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] done. Run: source ~/.bashrc"
