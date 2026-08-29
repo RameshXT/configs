@@ -88,11 +88,14 @@ ui_ok "Scripts: Copied bash configurations to $BASHRC_DIR"
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   ui_ok "Wrapper: Source loop already present in ~/.bashrc"
 else
-  echo -e "\n$MARKER_START" >> "$BASHRC"
-  echo 'for f in ~/.config/bashrc.d/*.sh; do' >> "$BASHRC"
-  echo '  [ -r "$f" ] && source "$f"' >> "$BASHRC"
-  echo 'done' >> "$BASHRC"
-  echo "$MARKER_END" >> "$BASHRC"
+  {
+    echo -e "\n$MARKER_START"
+    echo 'for f in ~/.config/bashrc.d/*.sh; do'
+    # shellcheck disable=SC2016
+    echo '  [ -r "$f" ] && source "$f"'
+    echo 'done'
+    echo "$MARKER_END"
+  } >> "$BASHRC"
   ui_ok "Wrapper: Injected source loop to ~/.bashrc"
 fi
 
