@@ -85,20 +85,25 @@ fi
 
 ui_ok "Scripts: Copied bash configurations to $BASHRC_DIR"
 
-# Inject into .bashrc
+# Inject into .bashrc (always clean replace for strict ordering)
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
-  ui_ok "Wrapper: Source loop already present in ~/.bashrc"
-else
-  {
-    echo -e "\n$MARKER_START"
-    echo 'for f in ~/.config/bashrc.d/*.sh; do'
-    # shellcheck disable=SC2016
-    echo '  [ -r "$f" ] && source "$f"'
-    echo 'done'
-    echo "$MARKER_END"
-  } >> "$BASHRC"
-  ui_ok "Wrapper: Injected source loop to ~/.bashrc"
+  awk -v start="$MARKER_START" -v end="$MARKER_END" '
+    $0 == start { in_block=1; next }
+    $0 == end { in_block=0; next }
+    !in_block { print }
+  ' "$BASHRC" > "${BASHRC}.tmp" && mv "${BASHRC}.tmp" "$BASHRC"
 fi
+
+{
+  echo ""
+  echo "$MARKER_START"
+  echo 'source ~/.config/bashrc.d/aws.sh'
+  echo 'source ~/.config/bashrc.d/history.sh'
+  echo 'source ~/.config/bashrc.d/terminal.sh'
+  echo 'source ~/.config/bashrc.d/aliases.sh'
+  echo "$MARKER_END"
+} >> "$BASHRC"
+ui_ok "Wrapper: Injected strictly ordered source statements to ~/.bashrc"
 
 ui_ok "Verification: All files in place"
 echo -e "\n${GREEN}[DONE]${NC}: Installation complete!\n\nRun: source ~/.bashrc" >&3
