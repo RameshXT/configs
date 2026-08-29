@@ -21,6 +21,19 @@ ui_done()  { echo -e "${GREEN}[DONE]${NC}: $1" >&3; }
 ui_info "Starting k9s customization installation. Detailed logs: $LOG_FILE"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Auto-bootstrap if run via curl | bash
+if [ ! -f "$SCRIPT_DIR/transparent.yaml" ]; then
+  ui_info "Bootstrapping k9s bundle from GitHub Releases..."
+  TMP_BOOT="$(mktemp -d)"
+  curl -fsSL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
+  tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
+  bash "$TMP_BOOT/install.sh"
+  ret=$?
+  rm -rf "$TMP_BOOT"
+  exit $ret
+fi
+
 K9S_CFG_DIR="$HOME/.config/k9s"
 TMP_DIR="$(mktemp -d)"
 BASHRC="$HOME/.bashrc"

@@ -7,11 +7,11 @@ A custom configuration bundle for k9s (v0.51.0+) featuring a transparent skin, e
 ## Install
 
 ```bash
-curl -fsSL https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz -o /tmp/k9s.tar.gz && mkdir -p /tmp/k9s-install && tar -xzf /tmp/k9s.tar.gz -C /tmp/k9s-install && bash /tmp/k9s-install/install.sh
+curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/install.sh | bash
 ```
 
 ## Uninstall
 
 ```bash
-curl -fsSL https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz -o /tmp/k9s.tar.gz && mkdir -p /tmp/k9s-install && tar -xzf /tmp/k9s.tar.gz -C /tmp/k9s-install && bash /tmp/k9s-install/uninstall.sh
+curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/uninstall.sh | bash
 ```

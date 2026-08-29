@@ -20,8 +20,22 @@ ui_done()  { echo -e "${GREEN}[DONE]${NC}: $1" >&3; }
 
 ui_info "Starting k9s customization uninstallation. Detailed logs: $LOG_FILE"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Auto-bootstrap if run via curl | bash
+if [ ! -f "$SCRIPT_DIR/transparent.yaml" ]; then
+  ui_info "Bootstrapping k9s bundle from GitHub Releases..."
+  TMP_BOOT="$(mktemp -d)"
+  curl -fsSL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
+  tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
+  bash "$TMP_BOOT/uninstall.sh"
+  ret=$?
+  rm -rf "$TMP_BOOT"
+  exit $ret
+fi
+
 echo -e -n "\n${YELLOW}Are you sure you want to uninstall k9s customizations? (y/n): ${NC}" >&3
-read -r response
+read -r response </dev/tty
 if [[ ! "$response" =~ ^[Yy]$ ]]; then
   echo -e "\n${BLUE}[INFO]${NC}: Uninstallation aborted by user." >&3
   exit 0
