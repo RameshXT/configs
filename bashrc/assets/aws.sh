@@ -1,4 +1,3 @@
-# AWS SSO quick switch: aws login | aws switch lead/power/read/clear | aws logout | aws status | aws menu
 aws() {
   case "$1" in
     login)
@@ -171,7 +170,6 @@ if command -v aws_completer &> /dev/null; then
   complete -C "$(command -v aws_completer)" aws
 fi
 
-# Restore last active AWS profile on shell startup
 if [ -s "$HOME/.aws/last-profile" ]; then
   _last_role=$(cat "$HOME/.aws/last-profile" 2>/dev/null)
   case "$_last_role" in

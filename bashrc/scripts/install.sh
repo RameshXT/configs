@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# UI Helpers
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
@@ -43,9 +42,8 @@ AWS_CONFIG_FILE="$AWS_CONFIG_DIR/config"
 MARKER_START="# >>> custom bashrc bundle >>>"
 MARKER_END="# <<< custom bashrc bundle <<<"
 
-# AWS Setup (Interactive only if missing)
 if [ ! -f "$AWS_CONFIG_FILE" ]; then
-  echo -e -n "\n${YELLOW}AWS config not found. Please enter your AWS SSO Organization Name (e.g. smaitic): ${NC}" >&3
+  echo -e -n "\n${YELLOW}AWS config not found. Please enter your AWS SSO Organization Name: ${NC}" >&3
   read -r ORG_NAME </dev/tty
   echo -e -n "${YELLOW}Please enter your AWS Account ID: ${NC}" >&3
   read -r ACCOUNT_ID </dev/tty
@@ -65,10 +63,8 @@ else
   ui_ok "AWS: Configuration already exists, skipping prompt"
 fi
 
-# We extract the ORG_NAME from the aws config so we can dynamically inject it into the aws.sh script
 ORG_NAME=$(grep "sso_session =" "$AWS_CONFIG_FILE" | head -n 1 | awk '{print $3}')
 
-# Copy assets
 mkdir -p "$BASHRC_DIR"
 cp "$SCRIPT_DIR/../assets/history.sh" "$BASHRC_DIR/history.sh"
 cp "$SCRIPT_DIR/../assets/aliases.sh" "$BASHRC_DIR/aliases.sh"
@@ -81,7 +77,6 @@ fi
 
 ui_ok "Scripts: Copied bash configurations to $BASHRC_DIR"
 
-# Inject into .bashrc (always clean replace for strict ordering)
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   awk -v start="$MARKER_START" -v end="$MARKER_END" '
     $0 == start { in_block=1; next }

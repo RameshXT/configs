@@ -1,4 +1,4 @@
-# linux command alias
+# linux alias
 alias cc='clear'
 
 # kubectl alias
