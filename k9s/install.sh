@@ -21,7 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 if [ ! -f "$SCRIPT_DIR/transparent.yaml" ]; then
   ui_info "Bootstrapping k9s bundle from GitHub Releases (this may take a few seconds)..."
   TMP_BOOT="$(mktemp -d)"
-  curl -fsSL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
+  curl -# -fL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
   tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
   bash "$TMP_BOOT/install.sh"
   ret=$?
