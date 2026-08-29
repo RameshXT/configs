@@ -45,14 +45,10 @@ MARKER_END="# <<< custom bashrc bundle <<<"
 
 # AWS Setup (Interactive only if missing)
 if [ ! -f "$AWS_CONFIG_FILE" ]; then
-  exec 4<&0
-  exec 0</dev/tty
   echo -e -n "\n${YELLOW}AWS config not found. Please enter your AWS SSO Organization Name (e.g. smaitic): ${NC}" >&3
-  read -r ORG_NAME
+  read -r ORG_NAME </dev/tty
   echo -e -n "${YELLOW}Please enter your AWS Account ID: ${NC}" >&3
-  read -r ACCOUNT_ID
-  exec 0<&4
-  exec 4<&-
+  read -r ACCOUNT_ID </dev/tty
   
   if [ -z "$ORG_NAME" ] || [ -z "$ACCOUNT_ID" ]; then
     echo "[install] error: missing org name or account id" >&2

@@ -18,12 +18,8 @@ set -x
 
 ui_info "Starting bashrc bundle uninstallation. Logs: $LOG_FILE"
 
-exec 4<&0
-exec 0</dev/tty
 echo -e -n "\n${YELLOW}Are you sure you want to uninstall your bashrc customizations? (y/n): ${NC}" >&3
-read -r response
-exec 0<&4
-exec 4<&-
+read -r response </dev/tty
 
 if [[ ! "$response" =~ ^[Yy]$ ]]; then
   echo -e "\n${BLUE}[INFO]${NC}: Uninstallation aborted by user." >&3
