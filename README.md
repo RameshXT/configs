@@ -5,10 +5,10 @@ A centralized collection of configurations and customizations.
 
 **Install Customizations**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/install.sh | bash
 ```
 
 **Uninstall Customizations**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/uninstall.sh | bash
 ```
