@@ -2,7 +2,7 @@
 set -euo pipefail
 set -x
 
-REPO_RAW="https://raw.githubusercontent.com/RameshXT/configs/main/k9s"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 K9S_CFG_DIR="$HOME/.config/k9s"
 TMP_DIR="$(mktemp -d)"
 BASHRC="$HOME/.bashrc"
@@ -13,22 +13,18 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 command -v k9s >/dev/null 2>&1 || { echo "[install] error: k9s not found in PATH" >&2; exit 1; }
 command -v yq  >/dev/null 2>&1 || { echo "[install] error: yq not found in PATH" >&2; exit 1; }
-command -v curl >/dev/null 2>&1 || { echo "[install] error: curl not found in PATH" >&2; exit 1; }
 
 mkdir -p "$K9S_CFG_DIR/skins"
 
-echo "$(date +'%Y-%m-%d %H:%M:%S') [install] downloading config files to $TMP_DIR ..."
+echo "$(date +'%Y-%m-%d %H:%M:%S') [install] copying config files to $TMP_DIR from local bundle ..."
 
-echo "Fetching: $REPO_RAW/skins/transparent.yaml"
-curl --max-time 15 -fsSL "$REPO_RAW/skins/transparent.yaml" -o "$TMP_DIR/transparent.yaml" || { echo "[install] ERROR: failed to download transparent.yaml from $REPO_RAW/skins/transparent.yaml" >&2; exit 1; }
+cp "$SCRIPT_DIR/transparent.yaml" "$TMP_DIR/transparent.yaml" || { echo "[install] ERROR: failed to copy transparent.yaml" >&2; exit 1; }
 
-echo "Fetching: $REPO_RAW/views.yaml"
-curl --max-time 15 -fsSL "$REPO_RAW/views.yaml" -o "$TMP_DIR/views.yaml" || { echo "[install] ERROR: failed to download views.yaml from $REPO_RAW/views.yaml" >&2; exit 1; }
+cp "$SCRIPT_DIR/view.yaml" "$TMP_DIR/view.yaml" || { echo "[install] ERROR: failed to copy view.yaml" >&2; exit 1; }
 
-echo "Fetching: $REPO_RAW/wrapper.sh"
-curl --max-time 15 -fsSL "$REPO_RAW/wrapper.sh" -o "$TMP_DIR/wrapper.sh" || { echo "[install] ERROR: failed to download wrapper.sh from $REPO_RAW/wrapper.sh" >&2; exit 1; }
+cp "$SCRIPT_DIR/wrapper.sh" "$TMP_DIR/wrapper.sh" || { echo "[install] ERROR: failed to copy wrapper.sh" >&2; exit 1; }
 
-echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished downloading config files."
+echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished copying config files."
 
 ts="$(date +%Y%m%d%H%M%S)"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] backing up existing files ..."
@@ -39,7 +35,7 @@ echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished backing up existing files.
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] applying skin + views ..."
 cp "$TMP_DIR/transparent.yaml" "$K9S_CFG_DIR/skins/transparent.yaml"
-cp "$TMP_DIR/views.yaml"       "$K9S_CFG_DIR/views.yaml"
+cp "$TMP_DIR/view.yaml"        "$K9S_CFG_DIR/views.yaml"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished applying skin + views."
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] updating config.yaml (skin reference only) ..."

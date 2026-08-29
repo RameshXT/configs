@@ -1,0 +1,112 @@
+name: Release custom-k9s
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'k9s/**'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate required files
+        run: |
+          set -euo pipefail
+          echo "::group::Validate required files"
+          for file in k9s/transparent.yaml k9s/view.yaml k9s/wrapper.sh k9s/install.sh k9s/uninstall.sh k9s/README.md; do
+            if [ ! -f "$file" ]; then
+              echo "::error::missing file: $file"
+              exit 1
+            fi
+          done
+          echo "All required files are present."
+          echo "::endgroup::"
+
+      - name: Lint shell scripts
+        run: |
+          set -euo pipefail
+          echo "::group::ShellCheck"
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck k9s/install.sh k9s/uninstall.sh
+          echo "::endgroup::"
+
+      - name: Package k9s folder
+        run: |
+          set -euo pipefail
+          echo "::group::Package tarball"
+          tar -czf k9s.tar.gz -C k9s .
+          echo "::endgroup::"
+
+      - name: Delete existing custom-k9s release and tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "::group::Delete old release"
+          gh release delete custom-k9s --yes --cleanup-tag || true
+          echo "::endgroup::"
+
+      - name: Create custom-k9s tag
+        run: |
+          set -euo pipefail
+          echo "::group::Tag commit"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f custom-k9s
+          git push origin custom-k9s --force
+          echo "::endgroup::"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "::group::Create Release"
+          cat << 'EOF' > release_notes.md
+          What this release contains:
+          - Transparent skin configuration
+          - Custom views with extra pod columns
+          - Safe read-only-by-default `.bashrc` wrapper
+          - Automated install and uninstall scripts
+          
+          Why use this:
+          This bundle customizes k9s (v0.51.0+) to enhance visibility (transparent skin, extra columns) and safety (read-only by default) when interacting with your clusters.
+          
+          > **Note**: This release is auto-published by CI and always reflects the latest `k9s/` folder state on `main` — not a versioned release, always treat `custom-k9s` as "latest".
+          
+          ## Install
+          ```bash
+          curl -fsSL https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz -o /tmp/k9s.tar.gz && mkdir -p /tmp/k9s-install && tar -xzf /tmp/k9s.tar.gz -C /tmp/k9s-install && bash /tmp/k9s-install/install.sh
+          ```
+          
+          ## Uninstall
+          ```bash
+          curl -fsSL https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz -o /tmp/k9s.tar.gz && mkdir -p /tmp/k9s-install && tar -xzf /tmp/k9s.tar.gz -C /tmp/k9s-install && bash /tmp/k9s-install/uninstall.sh
+          ```
+          EOF
+          
+          gh release create custom-k9s k9s.tar.gz \
+            --title "custom-k9s — k9s transparent skin, custom views & RO/RW wrapper" \
+            --notes-file release_notes.md
+          echo "::endgroup::"
+
+      - name: Verify Deployment URLs
+        run: |
+          set -euo pipefail
+          echo "::group::Install/Uninstall Instructions"
+          echo "Release URL: https://github.com/RameshXT/configs/releases/tag/custom-k9s"
+          echo ""
+          echo "INSTALL:"
+          echo "curl -fsSL https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz -o /tmp/k9s.tar.gz && mkdir -p /tmp/k9s-install && tar -xzf /tmp/k9s.tar.gz -C /tmp/k9s-install && bash /tmp/k9s-install/install.sh"
+          echo ""
+          echo "UNINSTALL:"
+          echo "curl -fsSL https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz -o /tmp/k9s.tar.gz && mkdir -p /tmp/k9s-install && tar -xzf /tmp/k9s.tar.gz -C /tmp/k9s-install && bash /tmp/k9s-install/uninstall.sh"
+          echo "::endgroup::"
