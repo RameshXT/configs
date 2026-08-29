@@ -8,7 +8,7 @@ A centralized collection of configurations and customizations.
 curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/install.sh | bash
 ```
 
-**Uninstall Customizations**
+**Uninstall**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/uninstall.sh | bash
 ```
