@@ -18,8 +18,7 @@ ui_done()  { echo -e "${GREEN}[DONE]${NC}: $1" >&3; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
-  echo -e "" >&3
-  ui_info "Bootstrapping k9s bundle..."
+  ui_info "Bootstrapping k9s bundle.."
   echo -e "" >&3
   TMP_BOOT="$(mktemp -d)"
   curl -# -fL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
