@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LOG_FILE="/tmp/k9s_install.log"
-exec 3>&1
-exec 1>"$LOG_FILE" 2>&1
-set -x
-
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
+
+exec 3>&1
 
 ui_ok()    { echo -e "${GREEN}[OK]${NC}: $1" >&3; }
 ui_info()  { echo -e "${BLUE}[INFO]${NC}: $1" >&3; }
@@ -18,13 +15,11 @@ ui_warn()  { echo -e "${YELLOW}[WARNING]${NC}: $1" >&3; }
 ui_error() { echo -e "${RED}[ERROR]${NC}: $1" >&3; }
 ui_done()  { echo -e "${GREEN}[DONE]${NC}: $1" >&3; }
 
-ui_info "Starting k9s customization installation. Detailed logs: $LOG_FILE"
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 # Auto-bootstrap if run via curl | bash
 if [ ! -f "$SCRIPT_DIR/transparent.yaml" ]; then
-  ui_info "Bootstrapping k9s bundle from GitHub Releases..."
+  ui_info "Bootstrapping k9s bundle from GitHub Releases (this may take a few seconds)..."
   TMP_BOOT="$(mktemp -d)"
   curl -fsSL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
   tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
@@ -33,6 +28,12 @@ if [ ! -f "$SCRIPT_DIR/transparent.yaml" ]; then
   rm -rf "$TMP_BOOT"
   exit $ret
 fi
+
+LOG_FILE="/tmp/k9s_install.log"
+exec 1>"$LOG_FILE" 2>&1
+set -x
+
+ui_info "Starting k9s customization installation. Detailed logs: $LOG_FILE"
 
 K9S_CFG_DIR="$HOME/.config/k9s"
 TMP_DIR="$(mktemp -d)"
