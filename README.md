@@ -3,7 +3,7 @@ A centralized collection of configurations and customizations.
 
 ## k9s
 
-**Install Customizations**
+## Install & Update
 ```bash
 curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/install.sh | bash
 ```

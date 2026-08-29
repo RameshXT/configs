@@ -72,7 +72,7 @@ jobs:
           set -euo pipefail
           echo "::group::Create Release"
           cat << 'EOF' > release_notes.md
-          ## Install
+          ## Install & Update
           ```bash
           curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/install.sh | bash
           ```
