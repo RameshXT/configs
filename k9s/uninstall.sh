@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-set -x
 
 LOG_FILE="/tmp/k9s_uninstall.log"
 exec 3>&1
 exec 1>"$LOG_FILE" 2>&1
+set -x
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -19,6 +19,13 @@ ui_error() { echo -e "${RED}[ERROR]${NC}: $1" >&3; }
 ui_done()  { echo -e "${GREEN}[DONE]${NC}: $1" >&3; }
 
 ui_info "Starting k9s customization uninstallation. Detailed logs: $LOG_FILE"
+
+echo -e -n "\n${YELLOW}Are you sure you want to uninstall k9s customizations? (y/n): ${NC}" >&3
+read -r response
+if [[ ! "$response" =~ ^[Yy]$ ]]; then
+  echo -e "\n${BLUE}[INFO]${NC}: Uninstallation aborted by user." >&3
+  exit 0
+fi
 
 K9S_CFG_DIR="$HOME/.config/k9s"
 BASHRC="$HOME/.bashrc"
@@ -92,4 +99,4 @@ echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] verification passed — all files
 ui_ok "Verification: Confirmed all configurations are successfully removed"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] done. Run: source ~/.bashrc"
-ui_done "Uninstallation complete! Run: source ~/.bashrc"
+echo -e "\n${GREEN}[DONE]${NC}: Uninstallation complete!\n\nRun: source ~/.bashrc" >&3

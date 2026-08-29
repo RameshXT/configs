@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-set -x
 
 LOG_FILE="/tmp/k9s_install.log"
 exec 3>&1
 exec 1>"$LOG_FILE" 2>&1
+set -x
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -120,4 +120,4 @@ echo "$(date +'%Y-%m-%d %H:%M:%S') [install] verification passed — all files c
 ui_ok "Verification: Confirmed all files and configurations are actively in place"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] done. Run: source ~/.bashrc"
-ui_done "Installation complete! Run: source ~/.bashrc"
+echo -e "\n${GREEN}[DONE]${NC}: Installation complete!\n\nRun: source ~/.bashrc" >&3
