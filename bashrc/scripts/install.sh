@@ -12,6 +12,8 @@ ui_info()  { echo -e "${BLUE}[INFO]${NC}: $1" >&3; }
 ui_warn()  { echo -e "${YELLOW}[WARNING]${NC}: $1" >&3; }
 ui_error() { echo -e "${RED}[ERROR]${NC}: $1" >&3; }
 
+exec 3>&1
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/../assets/aws_config.template" ]; then
@@ -29,7 +31,6 @@ if [ ! -f "$SCRIPT_DIR/../assets/aws_config.template" ]; then
 fi
 
 LOG_FILE="/tmp/bashrc_install.log"
-exec 3>&1
 exec 1>"$LOG_FILE" 2>&1
 set -x
 
