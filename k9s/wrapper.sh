@@ -1,7 +1,3 @@
-K9S_MARKER="# k9s access-mode wrapper"
-if ! grep -qF "$K9S_MARKER" ~/.bashrc; then
-  cat >> ~/.bashrc << 'EOF'
-
 # k9s access-mode wrapper
 # k9s          -> read-only (default, safe)
 # k9s -r/--read   -> read-only (explicit)
@@ -11,7 +7,7 @@ if ! grep -qF "$K9S_MARKER" ~/.bashrc; then
 k9s() {
   local k9s_bin
   k9s_bin="$(command -v k9s)" || { echo "[k9s] error: k9s binary not found in PATH" >&2; return 1; }
-  case "$1" in
+  case "${1:-}" in
     -w|--write)
       shift
       echo "[k9s] WRITE MODE — mutating commands enabled" >&2
@@ -28,8 +24,3 @@ k9s() {
       ;;
   esac
 }
-EOF
-  echo "[install] wrapper appended to ~/.bashrc"
-else
-  echo "[install] wrapper already present, skipping"
-fi
