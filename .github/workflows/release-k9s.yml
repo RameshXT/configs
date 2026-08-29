@@ -71,17 +71,6 @@ jobs:
           set -euo pipefail
           echo "::group::Create Release"
           cat << 'EOF' > release_notes.md
-          What this release contains:
-          - Transparent skin configuration
-          - Custom views with extra pod columns
-          - Safe read-only-by-default `.bashrc` wrapper
-          - Automated install and uninstall scripts
-          
-          Why use this:
-          This bundle customizes k9s (v0.51.0+) to enhance visibility (transparent skin, extra columns) and safety (read-only by default) when interacting with your clusters.
-          
-          > **Note**: This release is auto-published by CI and always reflects the latest `k9s/` folder state on `main` — not a versioned release, always treat `custom-k9s` as "latest".
-          
           ## Install
           ```bash
           curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/install.sh | bash
@@ -94,7 +83,7 @@ jobs:
           EOF
           
           gh release create custom-k9s k9s.tar.gz \
-            --title "custom-k9s — k9s transparent skin, custom views & RO/RW wrapper" \
+            --title "custom-k9s:latest" \
             --notes-file release_notes.md
           echo "::endgroup::"
 
