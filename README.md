@@ -1,7 +1,7 @@
 # configs
 A centralized collection of configurations and customizations.
 
-## k9s
+## k9s (Only for Ubuntu 24.04)
 A UI skin and configuration bundle for k9s that adds visual transparency, custom resource views, and a safe read-only terminal wrapper.
 
 ## Install & Update
