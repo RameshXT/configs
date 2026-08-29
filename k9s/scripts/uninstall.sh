@@ -70,7 +70,7 @@ command -v yq >/dev/null 2>&1 || { echo "[uninstall] error: yq not found in PATH
 ui_ok "Verified yq is installed"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] removing skin + views files ..."
-rm -f "$K9S_CFG_DIR/skins/transparent.yaml" "$K9S_CFG_DIR/views.yaml"
+rm -f "$K9S_CFG_DIR/skins/transparent.yaml" "$K9S_CFG_DIR/views.yaml" "$K9S_CFG_DIR/wrapper.sh"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing skin + views files."
 ui_ok "Removed custom skin and views"
 
@@ -94,7 +94,7 @@ else
 fi
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] verifying final state ..."
-for f in "$K9S_CFG_DIR/skins/transparent.yaml" "$K9S_CFG_DIR/views.yaml"; do
+for f in "$K9S_CFG_DIR/skins/transparent.yaml" "$K9S_CFG_DIR/views.yaml" "$K9S_CFG_DIR/wrapper.sh"; do
   if [ -e "$f" ]; then
     echo "[uninstall] FATAL: $f still exists after uninstall" >&2
     ui_error "Verification failed: $f still exists"
