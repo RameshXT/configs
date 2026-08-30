@@ -1,0 +1,114 @@
+{
+    "actions": [
+        {
+            "command": {
+                "action": "closeTab"
+            },
+            "id": "User.closeTab"
+        },
+        {
+            "command": {
+                "action": "splitPane",
+                "split": "auto"
+            },
+            "id": "User.splitPaneAuto"
+        },
+        {
+            "command": "closePane",
+            "id": "User.closePane"
+        }
+    ],
+    "autoHideWindow": false,
+    "copyFormatting": "none",
+    "copyOnSelect": false,
+    "keybindings": [
+        {
+            "id": "Terminal.NextTab",
+            "keys": "ctrl+tab"
+        },
+        {
+            "id": "Terminal.OpenNewTab",
+            "keys": "ctrl+t"
+        },
+        {
+            "id": "Terminal.CopyToClipboard",
+            "keys": "ctrl+c"
+        },
+        {
+            "id": "Terminal.FindText",
+            "keys": "ctrl+f"
+        },
+        {
+            "id": "Terminal.PasteFromClipboard",
+            "keys": "ctrl+v"
+        },
+        {
+            "id": "Terminal.DuplicatePaneAuto",
+            "keys": "alt+shift+d"
+        },
+        {
+            "id": "Terminal.SelectAll",
+            "keys": "ctrl+a"
+        },
+        {
+            "id": "User.closeTab",
+            "keys": "ctrl+w"
+        },
+        {
+            "id": "Terminal.SwitchToTab8",
+            "keys": "ctrl+9"
+        },
+        {
+            "id": "Terminal.SwitchToTab0",
+            "keys": "ctrl+1"
+        },
+        {
+            "id": "Terminal.SwitchToTab1",
+            "keys": "ctrl+2"
+        },
+        {
+            "id": "Terminal.SwitchToTab2",
+            "keys": "ctrl+3"
+        },
+        {
+            "id": "Terminal.SwitchToTab3",
+            "keys": "ctrl+4"
+        },
+        {
+            "id": "Terminal.SwitchToTab4",
+            "keys": "ctrl+5"
+        },
+        {
+            "id": "Terminal.SwitchToTab5",
+            "keys": "ctrl+6"
+        },
+        {
+            "id": "Terminal.SwitchToTab6",
+            "keys": "ctrl+7"
+        },
+        {
+            "id": "Terminal.SwitchToTab7",
+            "keys": "ctrl+8"
+        },
+        {
+            "id": "User.splitPaneAuto",
+            "keys": "ctrl+shift+period"
+        },
+        {
+            "id": "User.closePane",
+            "keys": "ctrl+shift+comma"
+        }
+    ],
+    "profiles": {
+        "defaults": {
+            "bellStyle": "none",
+            "colorScheme": "CGA",
+            "cursorColor": "#1645C5",
+            "cursorShape": "filledBox",
+            "opacity": 10,
+            "selectionBackground": "#87CEFA",
+            "useAcrylic": true
+        }
+    },
+    "useAcrylicInTabRow": true
+}
