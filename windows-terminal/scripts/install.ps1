@@ -29,7 +29,7 @@ if ($LocalSource) {
     Write-UI "Using local settings source: $LocalSource" "INFO"
     $customJsonStr = Get-Content $LocalSource -Raw
 } else {
-    $repoUrl = "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/assets/custom-settings.json"
+    $repoUrl = "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/assets/settings.json"
     Write-UI "Fetching custom settings from GitHub..." "INFO"
     $response = Invoke-WebRequest -Uri $repoUrl -UseBasicParsing
     $customJsonStr = $response.Content
