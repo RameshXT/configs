@@ -40,3 +40,47 @@ jobs:
           git tag -f custom-windows-terminal
           git push origin custom-windows-terminal --force
           echo "::endgroup::"
+
+      - name: Package windows-terminal folder
+        run: |
+          set -euo pipefail
+          echo "::group::Package tarball"
+          tar -czf windows-terminal.tar.gz -C windows-terminal .
+          echo "::endgroup::"
+
+      - name: Delete existing custom-windows-terminal release and tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "::group::Delete old release"
+          gh release delete custom-windows-terminal --yes --cleanup-tag || true
+          echo "::endgroup::"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "::group::Create Release"
+          cat << 'EOF' > release_notes.md
+          ## Install & Update
+          ```powershell
+          Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/install.ps1" | Invoke-Expression
+          ```
+          EOF
+          
+          gh release create custom-windows-terminal windows-terminal.tar.gz \
+            --title "custom-windows-terminal:latest" \
+            --notes-file release_notes.md
+          echo "::endgroup::"
+
+      - name: Verify Deployment URLs
+        run: |
+          set -euo pipefail
+          echo "::group::Install/Uninstall Instructions"
+          echo "Release URL: https://github.com/RameshXT/configs/releases/tag/custom-windows-terminal"
+          echo ""
+          echo "INSTALL:"
+          echo 'Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/install.ps1" | Invoke-Expression'
+          echo "::endgroup::"
