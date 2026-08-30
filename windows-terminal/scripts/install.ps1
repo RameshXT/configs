@@ -22,8 +22,6 @@ if (-not (Test-Path $settingsPath)) {
 
 Write-UI "Starting Windows Terminal customization installer..." "INFO"
 
-# During dev/testing, we can run this locally without hitting GitHub cache
-# If run with a local path parameter, it uses that instead of downloading
 
 if ($LocalSource) {
     Write-UI "Using local settings source: $LocalSource" "INFO"
@@ -39,7 +37,7 @@ $customSettings = $customJsonStr | ConvertFrom-Json
 $localSettingsStr = Get-Content $settingsPath -Raw
 $localSettings = $localSettingsStr | ConvertFrom-Json
 
-# Backup
+
 $ts = Get-Date -Format 'yyyyMMddHHmmss'
 $backupPath = "$settingsPath.bak.$ts"
 Copy-Item $settingsPath $backupPath
@@ -47,7 +45,7 @@ Write-UI "Backed up existing settings to $backupPath" "OK"
 
 Write-UI "Merging configurations idempotently..." "INFO"
 
-# Merge global settings
+
 foreach ($prop in @("autoHideWindow", "copyFormatting", "copyOnSelect", "useAcrylicInTabRow")) {
     if ($null -eq $localSettings.psobject.properties[$prop]) {
         $localSettings | Add-Member -MemberType NoteProperty -Name $prop -Value $customSettings.$prop
@@ -56,7 +54,7 @@ foreach ($prop in @("autoHideWindow", "copyFormatting", "copyOnSelect", "useAcry
     }
 }
 
-# Merge profile defaults
+
 if ($null -eq $localSettings.profiles) {
     $localSettings | Add-Member -MemberType NoteProperty -Name "profiles" -Value @{}
 }
@@ -72,7 +70,7 @@ foreach ($prop in $customSettings.profiles.defaults.psobject.properties) {
     }
 }
 
-# Merge Actions (Deduplicate by ID so we don't spam the array)
+
 if ($null -eq $localSettings.actions) {
     $localSettings | Add-Member -MemberType NoteProperty -Name "actions" -Value @()
 }
@@ -85,7 +83,7 @@ foreach ($a in $customSettings.actions) {
 }
 $localSettings.actions = @($existingActions.Values)
 
-# Merge Keybindings (Deduplicate by keys)
+
 if ($null -eq $localSettings.keybindings) {
     $localSettings | Add-Member -MemberType NoteProperty -Name "keybindings" -Value @()
 }
@@ -98,7 +96,7 @@ foreach ($kb in $customSettings.keybindings) {
 }
 $localSettings.keybindings = @($existingBindings.Values)
 
-# Save merged JSON
+
 $mergedJson = $localSettings | ConvertTo-Json -Depth 20
 $mergedJson | Set-Content $settingsPath -Encoding UTF8
 
