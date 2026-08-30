@@ -5,7 +5,19 @@ alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
 alias .....='cd ../../../..'
-alias myip='curl -s ifconfig.me'
+# history based steps back
+cd() {
+    case "$1" in
+        "") pushd "$HOME" > /dev/null ;;
+        "-") builtin cd - > /dev/null ;;
+        *)  pushd "$1" > /dev/null ;;
+    esac
+}
+
+alias ,,='popd > /dev/null || echo "No previous directory."'
+alias ,,,='popd > /dev/null 2>&1; popd > /dev/null || echo "No previous directory."'
+alias ,,,,='popd > /dev/null 2>&1; popd > /dev/null 2>&1; popd > /dev/null || echo "No previous directory."'
+alias myip='curl -s ifconfig.me; echo'
 alias ports='sudo ss -tulpn'
 alias rm='rm -i'
 alias cp='cp -i'
