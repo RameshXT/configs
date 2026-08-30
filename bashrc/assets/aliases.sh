@@ -50,26 +50,18 @@ alias logs='kubectl logs'
 alias logsf='kubectl logs -f'
 alias exec='kubectl exec -it'
 alias ctx='kubectl config current-context'
-
-
 alias rst='kubectl rollout status'
 alias top='kubectl top pods'
 alias all='kubectl get all'
-
 alias taints="kubectl get nodes -o custom-columns='NAME:.metadata.name,TAINTS:.spec.taints'"
 alias pf='kubectl port-forward'
 alias api='kubectl api-resources'
 alias explain='kubectl explain'
+alias apply='kubectl apply -f'
+alias edit='kubectl edit'
+alias rr='kubectl rollout restart'
 
-function apply() {
-    [ -z "$1" ] && { echo "usage: apply <file.yaml>"; return 1; }
-    echo "Context: $(kubectl config current-context)"
-    echo "Command: kubectl apply -f $1"
-    read -rp "Proceed? [y/N] " confirm
-    [[ "$confirm" == "y" ]] && kubectl apply -f "$1"
-}
-
-function delete() {
+delete() {
     [ -z "$1" ] && { echo "usage: delete <file.yaml>"; return 1; }
     echo "Context: $(kubectl config current-context)"
     echo "Command: kubectl delete -f $1"
@@ -77,23 +69,7 @@ function delete() {
     [[ "$confirm" == "y" ]] && kubectl delete -f "$1"
 }
 
-function edit() {
-    { [ -z "$1" ] || [ -z "$2" ]; } && { echo "usage: edit <resource> <name>"; return 1; }
-    echo "Context: $(kubectl config current-context)"
-    echo "Command: kubectl edit $1 $2"
-    read -rp "Proceed? [y/N] " confirm
-    [[ "$confirm" == "y" ]] && kubectl edit "$1" "$2"
-}
-
-function rr() {
-    [ -z "$1" ] && { echo "usage: rr <deployment/name>"; return 1; }
-    echo "Context: $(kubectl config current-context)"
-    echo "Command: kubectl rollout restart $1"
-    read -rp "Proceed? [y/N] " confirm
-    [[ "$confirm" == "y" ]] && kubectl rollout restart "$1"
-}
-
-function rollback() {
+rollback() {
     [ -z "$1" ] && { echo "usage: rollback <deployment/name> [--to-revision=N]"; return 1; }
     echo "Context: $(kubectl config current-context)"
     echo "Command: kubectl rollout undo $*"
@@ -101,7 +77,7 @@ function rollback() {
     [[ "$confirm" == "y" ]] && kubectl rollout undo "$@"
 }
 
-function scale() {
+scale() {
     [ -z "$1" ] && { echo "usage: scale <resource/name> --replicas=N"; return 1; }
     echo "Context: $(kubectl config current-context)"
     echo "Command: kubectl scale $*"
