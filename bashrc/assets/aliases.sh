@@ -61,7 +61,7 @@ alias apply='kubectl apply -f'
 alias edit='kubectl edit'
 alias rr='kubectl rollout restart'
 
-delete() {
+function delete() {
     [ -z "$1" ] && { echo "usage: delete <file.yaml>"; return 1; }
     echo "Context: $(kubectl config current-context)"
     echo "Command: kubectl delete -f $1"
@@ -69,7 +69,7 @@ delete() {
     [[ "$confirm" == "y" ]] && kubectl delete -f "$1"
 }
 
-rollback() {
+function rollback() {
     [ -z "$1" ] && { echo "usage: rollback <deployment/name> [--to-revision=N]"; return 1; }
     echo "Context: $(kubectl config current-context)"
     echo "Command: kubectl rollout undo $*"
@@ -77,7 +77,7 @@ rollback() {
     [[ "$confirm" == "y" ]] && kubectl rollout undo "$@"
 }
 
-scale() {
+function scale() {
     [ -z "$1" ] && { echo "usage: scale <resource/name> --replicas=N"; return 1; }
     echo "Context: $(kubectl config current-context)"
     echo "Command: kubectl scale $*"
