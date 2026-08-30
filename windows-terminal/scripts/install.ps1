@@ -48,10 +48,13 @@ Write-UI "Backed up existing settings to $backupPath" "OK"
 Write-UI "Merging configurations idempotently..." "INFO"
 
 # Merge global settings
-$localSettings.autoHideWindow = $customSettings.autoHideWindow
-$localSettings.copyFormatting = $customSettings.copyFormatting
-$localSettings.copyOnSelect = $customSettings.copyOnSelect
-$localSettings.useAcrylicInTabRow = $customSettings.useAcrylicInTabRow
+foreach ($prop in @("autoHideWindow", "copyFormatting", "copyOnSelect", "useAcrylicInTabRow")) {
+    if ($null -eq $localSettings.psobject.properties[$prop]) {
+        $localSettings | Add-Member -MemberType NoteProperty -Name $prop -Value $customSettings.$prop
+    } else {
+        $localSettings.$prop = $customSettings.$prop
+    }
+}
 
 # Merge profile defaults
 if ($null -eq $localSettings.profiles) {
