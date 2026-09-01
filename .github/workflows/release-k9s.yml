@@ -85,7 +85,8 @@ jobs:
           
           gh release create custom-k9s k9s.tar.gz \
             --title "custom-k9s:latest" \
-            --notes-file release_notes.md
+            --notes-file release_notes.md \
+            --draft=false
           echo "::endgroup::"
 
       - name: Verify Deployment URLs

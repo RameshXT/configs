@@ -23,14 +23,32 @@ if (-not (Test-Path $settingsPath)) {
 Write-UI "Starting Windows Terminal customization installer..." "INFO"
 
 
+function Invoke-Spinner {
+    param([scriptblock]$ScriptBlock, [string]$Message)
+    $spinstr = "⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"
+    $job = Start-Job -ScriptBlock $ScriptBlock
+    $i = 0
+    while ($job.State -eq "Running") {
+        $char = $spinstr[$i % $spinstr.Length]
+        Write-Host "`r[INFO]: $Message [$char] " -ForegroundColor Cyan -NoNewline
+        Start-Sleep -Milliseconds 80
+        $i++
+    }
+    $result = Receive-Job -Job $job
+    Remove-Job -Job $job
+    Write-Host "`r[OK]: $Message             " -ForegroundColor Green
+    return $result
+}
+
 if ($LocalSource) {
     Write-UI "Using local settings source: $LocalSource" "INFO"
     $customJsonStr = Get-Content $LocalSource -Raw
 } else {
     $repoUrl = "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/assets/settings.json"
-    Write-UI "Fetching custom settings from GitHub..." "INFO"
-    $response = Invoke-WebRequest -Uri $repoUrl -UseBasicParsing
-    $customJsonStr = $response.Content
+    $customJsonStr = Invoke-Spinner -Message "Fetching custom settings from GitHub..." -ScriptBlock {
+        param($url)
+        (Invoke-WebRequest -Uri $url -UseBasicParsing).Content
+    } -ArgumentList $repoUrl
 }
 
 $customSettings = $customJsonStr | ConvertFrom-Json

@@ -13,15 +13,26 @@ ui_error() { echo -e "${RED}[ERROR]${NC}: $1" >&3; }
 
 exec 3>&1
 
+spin() {
+  local pid=$1
+  local msg=$2
+  local delay=0.08
+  local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+  while kill -0 "$pid" 2>/dev/null; do
+    local temp=${spinstr#?}
+    printf "\r${BLUE}[INFO]${NC}: %s [%c] " "$msg" "$spinstr" >&3
+    spinstr=$temp${spinstr%"$temp"}
+    sleep $delay
+  done
+  printf "\r${GREEN}[OK]${NC}: %s              \n" "$msg" >&3
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/../assets/aws_config.template" ]; then
-  echo -e "" >&3
-  ui_info "Bootstrapping bashrc bundle..."
-  echo -e "" >&3
   TMP_BOOT="$(mktemp -d)"
-  curl -# -fL "https://github.com/RameshXT/configs/releases/download/custom-bashrc/bashrc.tar.gz" -o "$TMP_BOOT/bashrc.tar.gz"
-  echo -e "" >&3
+  curl -fsSL "https://github.com/RameshXT/configs/releases/download/custom-bashrc/bashrc.tar.gz" -o "$TMP_BOOT/bashrc.tar.gz" &
+  spin $! "Bootstrapping bashrc bundle..."
   tar -xzf "$TMP_BOOT/bashrc.tar.gz" -C "$TMP_BOOT"
   bash "$TMP_BOOT/scripts/install.sh"
   ret=$?
