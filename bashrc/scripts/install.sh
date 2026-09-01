@@ -17,13 +17,18 @@ spin() {
   local pid=$1
   local msg=$2
   local delay=0.08
-  local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-  while kill -0 "$pid" 2>/dev/null; do
-    local temp=${spinstr#?}
-    printf "\r${BLUE}[INFO]${NC}: %s [%c] " "$msg" "$spinstr" >&3
-    spinstr=$temp${spinstr%"$temp"}
+  local spinstr=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+  local i=0
+  local count=0
+  local LC_ALL=C.UTF-8
+  local LANG=C.UTF-8
+  while kill -0 "$pid" 2>/dev/null || [ $count -lt 12 ]; do
+    printf "\r${BLUE}[INFO]${NC}: %s [%s] " "$msg" "${spinstr[i]}" >&3
+    i=$(( (i + 1) % ${#spinstr[@]} ))
+    count=$((count + 1))
     sleep $delay
   done
+  wait "$pid" 2>/dev/null
   printf "\r${GREEN}[OK]${NC}: %s              \n" "$msg" >&3
 }
 
