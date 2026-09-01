@@ -97,5 +97,6 @@ fi
 ui_ok "Wrapper: Injected strictly ordered source statements to ~/.bashrc"
 
 ui_ok "Status: All files in place"
-echo -e "\n${GREEN}[DONE]${NC}: Installation complete! Reloading shell..\n" >&3
-exec bash </dev/tty >&3 2>&1
+echo -e "\n${GREEN}[DONE]${NC}: Installation complete!" >&3
+ui_ok "Shell reloaded! All aliases are ready to use.\n"
+exec bash -i </dev/tty >/dev/tty 2>&1
