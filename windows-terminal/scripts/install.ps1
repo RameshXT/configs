@@ -63,6 +63,7 @@ $backupPath = "$settingsPath.bak.$ts"
 Copy-Item $settingsPath $backupPath
 Write-UI "Backed up existing settings to $backupPath" "OK"
 
+Write-Host ""
 Write-UI "Merging configurations idempotently..." "INFO"
 
 
