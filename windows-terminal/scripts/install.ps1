@@ -20,15 +20,17 @@ if (-not (Test-Path $settingsPath)) {
     exit 1
 }
 
+Write-Host ""
 Write-UI "Starting Windows Terminal customization installer..." "INFO"
+Write-Host ""
 
 
 function Invoke-Spinner {
-    param([scriptblock]$ScriptBlock, [string]$Message)
+    param([scriptblock]$ScriptBlock, [string]$Message, [array]$ArgumentList = @())
     $spinstr = "⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"
-    $job = Start-Job -ScriptBlock $ScriptBlock
+    $job = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
     $i = 0
-    while ($job.State -eq "Running") {
+    while ($job.State -eq "Running" -or $i -lt 12) {
         $char = $spinstr[$i % $spinstr.Length]
         Write-Host "`r[INFO]: $Message [$char] " -ForegroundColor Cyan -NoNewline
         Start-Sleep -Milliseconds 80
@@ -118,5 +120,7 @@ $localSettings.keybindings = @($existingBindings.Values)
 $mergedJson = $localSettings | ConvertTo-Json -Depth 20
 $mergedJson | Set-Content $settingsPath -Encoding UTF8
 
+Write-Host ""
+Write-Host "[DONE]: Installation complete!" -ForegroundColor Green
 Write-UI "Windows Terminal will automatically apply the changes!" "OK"
-Write-UI "Installation complete." "OK"
+Write-Host ""

@@ -15,14 +15,31 @@ ui_warn()  { echo -e "${YELLOW}[WARNING]${NC}: $1" >&3; }
 ui_error() { echo -e "${RED}[ERROR]${NC}: $1" >&3; }
 ui_done()  { echo -e "${GREEN}[DONE]${NC}: $1" >&3; }
 
+spin() {
+  local pid=$1
+  local msg=$2
+  local delay=0.08
+  local spinstr=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+  local i=0
+  local count=0
+  local LC_ALL=C.UTF-8
+  local LANG=C.UTF-8
+  while kill -0 "$pid" 2>/dev/null || [ $count -lt 12 ]; do
+    printf "\r${BLUE}[INFO]${NC}: %s [%s] " "$msg" "${spinstr[i]}" >&3
+    i=$(( (i + 1) % ${#spinstr[@]} ))
+    count=$((count + 1))
+    sleep $delay
+  done
+  wait "$pid" 2>/dev/null
+  printf "\r${GREEN}[OK]${NC}: %s              \n" "$msg" >&3
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
-  ui_info "Bootstrapping k9s bundle.."
-  echo -e "" >&3
   TMP_BOOT="$(mktemp -d)"
-  curl -# -fL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz"
-  echo -e "" >&3
+  curl -fsSL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz" &
+  spin $! "Bootstrapping k9s bundle..."
   tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
   bash "$TMP_BOOT/scripts/uninstall.sh"
   ret=$?
@@ -34,9 +51,11 @@ LOG_FILE="/tmp/k9s_uninstall.log"
 exec 1>"$LOG_FILE" 2>&1
 set -x
 
-ui_info "Starting uninstallation. Logs: $LOG_FILE"
+echo -e "" >&3
+ui_info "Starting k9s bundle uninstallation. Logs: $LOG_FILE"
+echo -e "" >&3
 
-echo -e -n "\n${YELLOW}Are you sure you want to uninstall k9s customizations? (y/n): ${NC}" >&3
+echo -e -n "${YELLOW}Are you sure you want to uninstall k9s customizations? (y/n): ${NC}" >&3
 read -r response </dev/tty
 if [[ ! "$response" =~ ^[Yy]$ ]]; then
   echo -e "\n${BLUE}[INFO]${NC}: Uninstallation aborted by user." >&3
@@ -114,5 +133,7 @@ fi
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] verification passed, all files confirmed removed."
 ui_ok "Clean state confirmed"
 
-echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] done. Run: source ~/.bashrc"
-echo -e "\n${GREEN}[DONE]${NC}: Uninstallation complete!\n\nRun: source ~/.bashrc" >&3
+echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] done."
+echo -e "\n${GREEN}[DONE]${NC}: Uninstallation complete!" >&3
+ui_ok "Shell reloaded! Customizations removed.\n"
+exec bash -i </dev/tty >/dev/tty 2>&1

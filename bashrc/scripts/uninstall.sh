@@ -16,9 +16,11 @@ exec 3>&1
 exec 1>"$LOG_FILE" 2>&1
 set -x
 
+echo -e "" >&3
 ui_info "Starting bashrc bundle uninstallation. Logs: $LOG_FILE"
+echo -e "" >&3
 
-echo -e -n "\n${YELLOW}Are you sure you want to uninstall your bashrc customizations? (y/n): ${NC}" >&3
+echo -e -n "${YELLOW}Are you sure you want to uninstall your bashrc customizations? (y/n): ${NC}" >&3
 read -r response </dev/tty
 
 if [[ ! "$response" =~ ^[Yy]$ ]]; then
@@ -51,4 +53,6 @@ fi
 
 ui_info "Note: ~/.aws/config was NOT removed as it contains your AWS credentials."
 ui_ok "Clean state confirmed"
-echo -e "\n${GREEN}[DONE]${NC}: Uninstallation complete!\n\nRun: source ~/.bashrc" >&3
+echo -e "\n${GREEN}[DONE]${NC}: Uninstallation complete!" >&3
+ui_ok "Shell reloaded! Customizations removed.\n"
+exec bash -i </dev/tty >/dev/tty 2>&1
