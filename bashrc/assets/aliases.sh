@@ -86,6 +86,7 @@ d() {
     esac
 }
 alias desc='d'
+alias describe='d'
 
 yaml() {
     [ -z "$1" ] && { echo "usage: yaml [resource] <name>"; return 1; }
@@ -113,6 +114,7 @@ img() {
     fi
     kubectl get pod "$pod" "${ns_args[@]}" -o jsonpath='{.metadata.name}{": "}{range .spec.containers[*]}{.image}{" "}{end}{"\n"}'
 }
+alias image='img'
 
 nimg() {
     local ns_args=()
