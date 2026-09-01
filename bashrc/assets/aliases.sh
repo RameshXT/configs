@@ -74,8 +74,8 @@ alias del='kubectl delete -f'
 alias delete='kubectl delete -f'
 alias undo='kubectl rollout undo'
 alias allimg="kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{\"/\"}{.metadata.name}{\": \"}{range .spec.containers[*]}{.image}{\" \"}{end}{\"\n\"}{end}'"
-desc() {
-    [ -z "$1" ] && { echo "usage: desc [resource] <name>"; return 1; }
+d() {
+    [ -z "$1" ] && { echo "usage: d [resource] <name>"; return 1; }
     case "$1" in
         pod|pods|po|svc|service|services|deploy|deployment|deployments|cm|configmap|configmaps|secret|secrets|ing|ingress|pvc|pv|job|jobs|cj|cronjob|cronjobs|rs|replicaset|sts|statefulset|ds|daemonset|node|nodes|ns|namespace|namespaces|*/*|-*)
             kubectl describe "$@"
@@ -85,6 +85,7 @@ desc() {
             ;;
     esac
 }
+alias desc='d'
 
 yaml() {
     [ -z "$1" ] && { echo "usage: yaml [resource] <name>"; return 1; }
