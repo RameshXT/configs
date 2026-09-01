@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+
+K9S_CFG_DIR="$HOME/.config/k9s"
+BASHRC="$HOME/.bashrc"
+MARKER_START="# >>> k9s customization >>>"
+
+if [ ! -f "$K9S_CFG_DIR/skins/transparent.yaml" ] && ! grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
+  echo -e "\033[90m[INFO]: k9s bundle is not installed.\033[0m"
+  exit 0
+fi
+
 set -euo pipefail
 
 GREEN='\033[0;32m'
@@ -50,17 +60,6 @@ fi
 LOG_FILE="/tmp/k9s_uninstall.log"
 exec 1>"$LOG_FILE" 2>&1
 set -x
-
-GRAY='\033[90m'
-
-K9S_CFG_DIR="$HOME/.config/k9s"
-BASHRC="$HOME/.bashrc"
-MARKER_START="# >>> k9s customization >>>"
-
-if [ ! -f "$K9S_CFG_DIR/skins/transparent.yaml" ] && ! grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
-  echo -e "${GRAY}[INFO]${NC}: k9s bundle is not installed." >&3
-  return 0 2>/dev/null || exit 0
-fi
 
 echo -e "" >&3
 ui_info "Starting k9s bundle uninstallation. Logs: $LOG_FILE"

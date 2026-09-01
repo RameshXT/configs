@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+BASHRC_DIR="$HOME/.config/bashrc.d"
+BASHRC="$HOME/.bashrc"
+MARKER_START="# >>> custom bashrc bundle >>>"
+MARKER_END="# <<< custom bashrc bundle <<<"
+
+if [ ! -d "$BASHRC_DIR" ] && ! grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
+  echo -e "\033[90m[INFO]: bashrc bundle is not installed.\033[0m"
+  exit 0
+fi
+
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
@@ -15,18 +25,6 @@ LOG_FILE="/tmp/bashrc_uninstall.log"
 exec 3>&1
 exec 1>"$LOG_FILE" 2>&1
 set -x
-
-GRAY='\033[90m'
-
-BASHRC_DIR="$HOME/.config/bashrc.d"
-BASHRC="$HOME/.bashrc"
-MARKER_START="# >>> custom bashrc bundle >>>"
-MARKER_END="# <<< custom bashrc bundle <<<"
-
-if [ ! -d "$BASHRC_DIR" ] && ! grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
-  echo -e "${GRAY}[INFO]${NC}: bashrc bundle is not installed." >&3
-  return 0 2>/dev/null || exit 0
-fi
 
 echo -e "" >&3
 ui_info "Starting bashrc bundle uninstallation. Logs: $LOG_FILE"
