@@ -34,13 +34,19 @@ spin() {
   local count=0
   local LC_ALL=C.UTF-8
   local LANG=C.UTF-8
-  while kill -0 "$pid" 2>/dev/null || [ $count -lt 12 ]; do
+  while kill -0 "$pid" 2>/dev/null; do
     printf "\r${BLUE}[INFO]${NC}: %s [%s] " "$msg" "${spinstr[i]}" >&3
     i=$(( (i + 1) % ${#spinstr[@]} ))
     count=$((count + 1))
     sleep $delay
   done
-  wait "$pid" 2>/dev/null
+  while [ $count -lt 12 ]; do
+    printf "\r${BLUE}[INFO]${NC}: %s [%s] " "$msg" "${spinstr[i]}" >&3
+    i=$(( (i + 1) % ${#spinstr[@]} ))
+    count=$((count + 1))
+    sleep $delay
+  done
+  wait "$pid" 2>/dev/null || true
   printf "\r${GREEN}[OK]${NC}: %s              \n" "$msg" >&3
 }
 
@@ -48,7 +54,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
   TMP_BOOT="$(mktemp -d)"
-  curl -fsSL "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz" &
+  curl -fsSL --connect-timeout 10 --max-time 30 "https://github.com/RameshXT/configs/releases/download/custom-k9s/k9s.tar.gz" -o "$TMP_BOOT/k9s.tar.gz" &
   spin $! "Bootstrapping k9s bundle..."
   tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
   bash "$TMP_BOOT/scripts/uninstall.sh"
