@@ -164,4 +164,5 @@ ui_ok "Verification: All files in place"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] done."
 echo -e "\n${GREEN}[DONE]${NC}: Installation complete!" >&3
 ui_ok "Shell reloaded! All aliases are ready to use.\n"
+exec 200>&- 2>/dev/null || true
 exec bash -i </dev/tty >/dev/tty 2>&1

@@ -149,4 +149,5 @@ ui_ok "Clean state confirmed"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] done."
 echo -e "\n${GREEN}[DONE]${NC}: Uninstallation complete!" >&3
 ui_ok "Shell reloaded! Customizations removed.\n"
+exec 200>&- 2>/dev/null || true
 exec bash -i </dev/tty >/dev/tty 2>&1
