@@ -9,3 +9,11 @@ Open PowerShell and run:
 ```powershell
 Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/install.ps1" | Invoke-Expression
 ```
+
+## Uninstall
+
+Open PowerShell and run:
+
+```powershell
+Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/uninstall.ps1" | Invoke-Expression
+```

@@ -22,7 +22,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "::group::Validate required files"
-          for file in windows-terminal/assets/settings.json windows-terminal/scripts/install.ps1 windows-terminal/README.md; do
+          for file in windows-terminal/assets/settings.json windows-terminal/scripts/install.ps1 windows-terminal/scripts/uninstall.ps1 windows-terminal/README.md; do
             if [ ! -f "$file" ]; then
               echo "::error::missing file: $file"
               exit 1
@@ -68,6 +68,11 @@ jobs:
           ```powershell
           Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/install.ps1" | Invoke-Expression
           ```
+
+          ## Uninstall
+          ```powershell
+          Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/uninstall.ps1" | Invoke-Expression
+          ```
           EOF
           
           gh release create custom-windows-terminal windows-terminal.tar.gz \
@@ -84,4 +89,7 @@ jobs:
           echo ""
           echo "INSTALL:"
           echo 'Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/install.ps1" | Invoke-Expression'
+          echo ""
+          echo "UNINSTALL:"
+          echo 'Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/uninstall.ps1" | Invoke-Expression'
           echo "::endgroup::"

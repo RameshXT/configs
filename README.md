@@ -34,3 +34,8 @@ A smart, idempotent PowerShell installer that dynamically merges custom keybindi
 ```powershell
 Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/install.ps1" | Invoke-Expression
 ```
+
+### Uninstall
+```powershell
+Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/uninstall.ps1" | Invoke-Expression
+```
