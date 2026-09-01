@@ -58,10 +58,13 @@ $localSettingsStr = Get-Content $settingsPath -Raw
 $localSettings = $localSettingsStr | ConvertFrom-Json
 
 
-$ts = Get-Date -Format 'yyyyMMddHHmmss'
-$backupPath = "$settingsPath.bak.$ts"
-Copy-Item $settingsPath $backupPath
-Write-UI "Backed up existing settings to $backupPath" "OK"
+$originalBackup = "$settingsPath.bak.original"
+if (-not (Test-Path $originalBackup)) {
+    Copy-Item $settingsPath $originalBackup
+    Write-UI "Created initial pre-customization backup at $originalBackup" "OK"
+} else {
+    Write-UI "Original pre-customization backup already preserved at $originalBackup" "OK"
+}
 
 Write-Host ""
 Write-UI "Merging configurations idempotently..." "INFO"

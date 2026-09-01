@@ -31,14 +31,31 @@ if ($response -notmatch '^[Yy]$') {
     exit 0
 }
 
-$backups = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages\$terminalPkg\LocalState" -Filter "settings.json.bak.*" 2>$null | Sort-Object CreationTime -Descending
-if ($backups.Count -gt 0) {
-    $latestBackup = $backups[0].FullName
-    Copy-Item $latestBackup $settingsPath -Force
-    Write-UI "Restored latest backup settings from $latestBackup" "OK"
+$originalBackup = "$settingsPath.bak.original"
+$legacyBackups = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages\$terminalPkg\LocalState" -Filter "settings.json.bak.*" 2>$null | Sort-Object CreationTime
+
+if (Test-Path $originalBackup) {
+    Copy-Item $originalBackup $settingsPath -Force
+    Remove-Item $originalBackup -Force -ErrorAction SilentlyContinue
+    Write-UI "Restored original pre-customization settings from $originalBackup" "OK"
+} elseif ($legacyBackups.Count -gt 0) {
+    $earliestBackup = $legacyBackups[0].FullName
+    Copy-Item $earliestBackup $settingsPath -Force
+    Write-UI "Restored earliest backup settings from $earliestBackup" "OK"
 } else {
-    Write-UI "No backup file found to restore" "WARN"
+    $localSettingsStr = Get-Content $settingsPath -Raw
+    $localSettings = $localSettingsStr | ConvertFrom-Json
+    if ($localSettings.psobject.properties["useAcrylicInTabRow"]) { $localSettings.psobject.properties.Remove("useAcrylicInTabRow") }
+    if ($localSettings.profiles -and $localSettings.profiles.defaults) {
+        foreach ($p in @("useAcrylic", "opacity", "colorScheme", "cursorColor", "cursorShape", "selectionBackground", "bellStyle")) {
+            if ($localSettings.profiles.defaults.psobject.properties[$p]) { $localSettings.profiles.defaults.psobject.properties.Remove($p) }
+        }
+    }
+    $localSettings | ConvertTo-Json -Depth 20 | Set-Content $settingsPath -Encoding UTF8
+    Write-UI "Reverted customized settings to stock Windows Terminal defaults" "OK"
 }
+
+Remove-Item "$env:LOCALAPPDATA\Packages\$terminalPkg\LocalState\settings.json.bak.*" -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "[DONE]: Uninstallation complete!" -ForegroundColor Green
