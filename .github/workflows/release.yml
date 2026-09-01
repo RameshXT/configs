@@ -1,0 +1,157 @@
+name: Release Custom Bundles
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'bashrc/**'
+      - 'k9s/**'
+      - 'windows-terminal/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      bashrc: ${{ steps.filter.outputs.bashrc }}
+      k9s: ${{ steps.filter.outputs.k9s }}
+      windows_terminal: ${{ steps.filter.outputs.windows_terminal }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            bashrc:
+              - 'bashrc/**'
+            k9s:
+              - 'k9s/**'
+            windows_terminal:
+              - 'windows-terminal/**'
+
+  release-bashrc:
+    needs: changes
+    if: ${{ needs.changes.outputs.bashrc == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate required files
+        run: |
+          set -euo pipefail
+          for file in bashrc/assets/aws.sh bashrc/assets/aliases.sh bashrc/assets/history.sh bashrc/assets/terminal.sh bashrc/assets/aws_config.template bashrc/scripts/install.sh bashrc/scripts/uninstall.sh bashrc/README.md; do
+            if [ ! -f "$file" ]; then echo "missing file: $file"; exit 1; fi
+          done
+      - name: Package bashrc folder
+        run: tar -czf bashrc.tar.gz -C bashrc .
+      - name: Delete old release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete custom-bashrc --yes --cleanup-tag || true
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f custom-bashrc
+          git push origin custom-bashrc --force
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat << 'EOF' > release_notes.md
+          ## Install & Update
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/bashrc/scripts/install.sh | bash
+          ```
+
+          ## Uninstall
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/bashrc/scripts/uninstall.sh | bash
+          ```
+          EOF
+          gh release create custom-bashrc bashrc.tar.gz --title "custom-bashrc:latest" --notes-file release_notes.md --draft=false
+
+  release-k9s:
+    needs: changes
+    if: ${{ needs.changes.outputs.k9s == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate required files
+        run: |
+          set -euo pipefail
+          for file in k9s/assets/transparent.yaml k9s/assets/view.yaml k9s/assets/wrapper.sh k9s/scripts/install.sh k9s/scripts/uninstall.sh k9s/README.md; do
+            if [ ! -f "$file" ]; then echo "missing file: $file"; exit 1; fi
+          done
+      - name: Package k9s folder
+        run: tar -czf k9s.tar.gz -C k9s .
+      - name: Delete old release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete custom-k9s --yes --cleanup-tag || true
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f custom-k9s
+          git push origin custom-k9s --force
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat << 'EOF' > release_notes.md
+          ## Install & Update
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/install.sh | bash
+          ```
+
+          ## Uninstall
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/RameshXT/configs/main/k9s/scripts/uninstall.sh | bash
+          ```
+          EOF
+          gh release create custom-k9s k9s.tar.gz --title "custom-k9s:latest" --notes-file release_notes.md --draft=false
+
+  release-windows-terminal:
+    needs: changes
+    if: ${{ needs.changes.outputs.windows_terminal == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate required files
+        run: |
+          set -euo pipefail
+          for file in windows-terminal/assets/settings.json windows-terminal/scripts/install.ps1 windows-terminal/scripts/uninstall.ps1 windows-terminal/README.md; do
+            if [ ! -f "$file" ]; then echo "missing file: $file"; exit 1; fi
+          done
+      - name: Package windows-terminal folder
+        run: tar -czf windows-terminal.tar.gz -C windows-terminal .
+      - name: Delete old release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete custom-windows-terminal --yes --cleanup-tag || true
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f custom-windows-terminal
+          git push origin custom-windows-terminal --force
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat << 'EOF' > release_notes.md
+          ## Install & Update
+          ```powershell
+          Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/install.ps1" | Invoke-Expression
+          ```
+
+          ## Uninstall
+          ```powershell
+          Invoke-RestMethod -Uri "https://raw.githubusercontent.com/RameshXT/configs/main/windows-terminal/scripts/uninstall.ps1" | Invoke-Expression
+          ```
+          EOF
+          gh release create custom-windows-terminal windows-terminal.tar.gz --title "custom-windows-terminal:latest" --notes-file release_notes.md --draft=false
