@@ -96,5 +96,6 @@ fi
 } >> "$BASHRC"
 ui_ok "Wrapper: Injected strictly ordered source statements to ~/.bashrc"
 
-ui_ok "Verification: All files in place"
-echo -e "\n${GREEN}[DONE]${NC}: Installation complete!\n\nRun: source ~/.bashrc" >&3
+ui_ok "Status: All files in place"
+echo -e "\n${GREEN}[DONE]${NC}: Installation complete! Reloading shell..\n" >&3
+exec bash </dev/tty >&3 2>&1
