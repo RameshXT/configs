@@ -49,7 +49,9 @@ LOG_FILE="/tmp/bashrc_install.log"
 exec 1>"$LOG_FILE" 2>&1
 set -x
 
+echo -e "" >&3
 ui_info "Starting bashrc bundle installation. Logs: $LOG_FILE"
+echo -e "" >&3
 
 BASHRC_DIR="$HOME/.config/bashrc.d"
 BASHRC="$HOME/.bashrc"

@@ -51,7 +51,9 @@ LOG_FILE="/tmp/k9s_install.log"
 exec 1>"$LOG_FILE" 2>&1
 set -x
 
-ui_info "Starting installation. Logs: $LOG_FILE"
+echo -e "" >&3
+ui_info "Starting k9s bundle installation. Logs: $LOG_FILE"
+echo -e "" >&3
 
 K9S_CFG_DIR="$HOME/.config/k9s"
 TMP_DIR="$(mktemp -d)"
