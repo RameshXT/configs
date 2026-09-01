@@ -17,7 +17,7 @@ $settingsPath = "$env:LOCALAPPDATA\Packages\$terminalPkg\LocalState\settings.jso
 
 if (-not (Test-Path $settingsPath)) {
     Write-UI "Windows Terminal settings file not found at $settingsPath" "ERROR"
-    exit 1
+    return
 }
 
 Write-Host ""

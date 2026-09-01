@@ -17,7 +17,7 @@ $settingsPath = "$env:LOCALAPPDATA\Packages\$terminalPkg\LocalState\settings.jso
 
 if (-not (Test-Path $settingsPath)) {
     Write-UI "Windows Terminal settings file not found at $settingsPath" "ERROR"
-    exit 1
+    return
 }
 
 Write-Host ""
@@ -28,7 +28,7 @@ $response = Read-Host "Are you sure you want to uninstall Windows Terminal custo
 if ($response -notmatch '^[Yy]$') {
     Write-Host ""
     Write-UI "Uninstallation aborted by user." "INFO"
-    exit 0
+    return
 }
 
 $originalBackup = "$settingsPath.bak.original"
