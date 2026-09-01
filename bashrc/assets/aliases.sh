@@ -75,22 +75,52 @@ alias delete='kubectl delete -f'
 alias undo='kubectl rollout undo'
 alias allimg="kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{\"/\"}{.metadata.name}{\": \"}{range .spec.containers[*]}{.image}{\" \"}{end}{\"\n\"}{end}'"
 desc() {
-    [ -z "$1" ] && { echo "usage: desc <resource> [name]"; return 1; }
-    kubectl describe "$@"
+    [ -z "$1" ] && { echo "usage: desc [resource] <name>"; return 1; }
+    case "$1" in
+        pod|pods|po|svc|service|services|deploy|deployment|deployments|cm|configmap|configmaps|secret|secrets|ing|ingress|pvc|pv|job|jobs|cj|cronjob|cronjobs|rs|replicaset|sts|statefulset|ds|daemonset|node|nodes|ns|namespace|namespaces|*/*|-*)
+            kubectl describe "$@"
+            ;;
+        *)
+            kubectl describe pod "$@"
+            ;;
+    esac
 }
-kyaml() {
-    [ -z "$1" ] && { echo "usage: kyaml <resource> [name]"; return 1; }
-    kubectl get "$@" -o yaml
+
+yaml() {
+    [ -z "$1" ] && { echo "usage: yaml [resource] <name>"; return 1; }
+    case "$1" in
+        pod|pods|po|svc|service|services|deploy|deployment|deployments|cm|configmap|configmaps|secret|secrets|ing|ingress|pvc|pv|job|jobs|cj|cronjob|cronjobs|rs|replicaset|sts|statefulset|ds|daemonset|node|nodes|ns|namespace|namespaces|*/*|-*)
+            kubectl get "$@" -o yaml
+            ;;
+        *)
+            kubectl get pod "$@" -o yaml
+            ;;
+    esac
 }
+
 img() {
-    [ -z "$1" ] && { echo "usage: img <pod-name> [namespace]"; return 1; }
-    local ns="${2:+-n $2}"
-    kubectl get pod "$1" $ns -o jsonpath='{.metadata.name}{": "}{range .spec.containers[*]}{.image}{" "}{end}{"\n"}'
-}
-nimg() {
-    local ns_flag="$*"
-    if [ -n "$1" ] && [[ "$1" != -* ]]; then
-        ns_flag="-n $1"
+    [ -z "$1" ] && { echo "usage: img <pod-name> [namespace|-n namespace]"; return 1; }
+    local pod="$1"
+    shift
+    local ns_args=()
+    if [ "$#" -gt 0 ]; then
+        if [ "$1" = "-n" ]; then
+            ns_args=("$@")
+        else
+            ns_args=("-n" "$1")
+        fi
     fi
-    kubectl get pods $ns_flag -o jsonpath='{range .items[*]}{.metadata.name}{": "}{range .spec.containers[*]}{.image}{" "}{end}{"\n"}{end}'
+    kubectl get pod "$pod" "${ns_args[@]}" -o jsonpath='{.metadata.name}{": "}{range .spec.containers[*]}{.image}{" "}{end}{"\n"}'
+}
+
+nimg() {
+    local ns_args=()
+    if [ "$#" -gt 0 ]; then
+        if [ "$1" = "-n" ]; then
+            ns_args=("$@")
+        else
+            ns_args=("-n" "$1")
+        fi
+    fi
+    kubectl get pods "${ns_args[@]}" -o jsonpath='{range .items[*]}{.metadata.name}{": "}{range .spec.containers[*]}{.image}{" "}{end}{"\n"}{end}'
 }
