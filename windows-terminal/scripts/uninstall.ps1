@@ -24,10 +24,9 @@ $originalBackup = "$settingsPath.bak.original"
 $legacyBackups = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages\$terminalPkg\LocalState" -Filter "settings.json.bak.*" 2>$null
 $localSettingsStr = Get-Content $settingsPath -Raw
 $localSettings = $localSettingsStr | ConvertFrom-Json
-$hasAcrylic = ($localSettings.psobject.properties["useAcrylicInTabRow"] -and $localSettings.useAcrylicInTabRow) -or
-              ($localSettings.profiles -and $localSettings.profiles.defaults -and $localSettings.profiles.defaults.psobject.properties["useAcrylic"] -and $localSettings.profiles.defaults.useAcrylic)
 
-if (-not (Test-Path $originalBackup) -and $legacyBackups.Count -eq 0 -and -not $hasAcrylic) {
+$isInstalled = (Test-Path $originalBackup) -or ($legacyBackups.Count -gt 0) -or ($null -ne $localSettings.psobject.properties["customBundle"])
+if (-not $isInstalled) {
     Write-Host "[INFO]: Windows Terminal bundle is not installed." -ForegroundColor DarkGray
     return
 }
@@ -43,9 +42,6 @@ if ($response -notmatch '^[Yy]$') {
     return
 }
 
-$originalBackup = "$settingsPath.bak.original"
-$legacyBackups = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages\$terminalPkg\LocalState" -Filter "settings.json.bak.*" 2>$null | Sort-Object CreationTime
-
 if (Test-Path $originalBackup) {
     Copy-Item $originalBackup $settingsPath -Force
     Remove-Item $originalBackup -Force -ErrorAction SilentlyContinue
@@ -55,8 +51,7 @@ if (Test-Path $originalBackup) {
     Copy-Item $earliestBackup $settingsPath -Force
     Write-UI "Restored earliest backup settings from $earliestBackup" "OK"
 } else {
-    $localSettingsStr = Get-Content $settingsPath -Raw
-    $localSettings = $localSettingsStr | ConvertFrom-Json
+    if ($localSettings.psobject.properties["customBundle"]) { $localSettings.psobject.properties.Remove("customBundle") }
     if ($localSettings.psobject.properties["useAcrylicInTabRow"]) { $localSettings.psobject.properties.Remove("useAcrylicInTabRow") }
     if ($localSettings.profiles -and $localSettings.profiles.defaults) {
         foreach ($p in @("useAcrylic", "opacity", "colorScheme", "cursorColor", "cursorShape", "selectionBackground", "bellStyle")) {

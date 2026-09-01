@@ -77,6 +77,7 @@ foreach ($prop in @("autoHideWindow", "copyFormatting", "copyOnSelect", "useAcry
         $localSettings.$prop = $customSettings.$prop
     }
 }
+$localSettings | Add-Member -MemberType NoteProperty -Name "customBundle" -Value "rameshxt-configs" -Force
 
 
 if ($null -eq $localSettings.profiles) {
