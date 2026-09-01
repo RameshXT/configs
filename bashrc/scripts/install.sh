@@ -42,8 +42,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/../assets/aws_config.template" ]; then
   TMP_BOOT="$(mktemp -d)"
-  curl -fsSL --connect-timeout 10 --max-time 30 "https://github.com/RameshXT/configs/releases/download/custom-bashrc/bashrc.tar.gz" -o "$TMP_BOOT/bashrc.tar.gz" &
+  curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 30 "https://github.com/RameshXT/configs/releases/download/custom-bashrc/bashrc.tar.gz" -o "$TMP_BOOT/bashrc.tar.gz" &
   spin $! "Bootstrapping bashrc bundle..."
+  if [ ! -s "$TMP_BOOT/bashrc.tar.gz" ]; then
+    echo -e "${RED}[ERROR]${NC}: Failed to download release bundle." >&3
+    rm -rf "$TMP_BOOT"
+    exit 1
+  fi
   tar -xzf "$TMP_BOOT/bashrc.tar.gz" -C "$TMP_BOOT"
   bash "$TMP_BOOT/scripts/install.sh"
   ret=$?
