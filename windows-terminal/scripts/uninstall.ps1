@@ -20,6 +20,18 @@ if (-not (Test-Path $settingsPath)) {
     return
 }
 
+$originalBackup = "$settingsPath.bak.original"
+$legacyBackups = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages\$terminalPkg\LocalState" -Filter "settings.json.bak.*" 2>$null
+$localSettingsStr = Get-Content $settingsPath -Raw
+$localSettings = $localSettingsStr | ConvertFrom-Json
+$hasAcrylic = ($localSettings.psobject.properties["useAcrylicInTabRow"] -and $localSettings.useAcrylicInTabRow) -or
+              ($localSettings.profiles -and $localSettings.profiles.defaults -and $localSettings.profiles.defaults.psobject.properties["useAcrylic"] -and $localSettings.profiles.defaults.useAcrylic)
+
+if (-not (Test-Path $originalBackup) -and $legacyBackups.Count -eq 0 -and -not $hasAcrylic) {
+    Write-Host "[INFO]: Windows Terminal bundle is not installed." -ForegroundColor DarkGray
+    return
+}
+
 Write-Host ""
 Write-UI "Starting Windows Terminal customization uninstallation..." "INFO"
 Write-Host ""

@@ -16,6 +16,18 @@ exec 3>&1
 exec 1>"$LOG_FILE" 2>&1
 set -x
 
+GRAY='\033[90m'
+
+BASHRC_DIR="$HOME/.config/bashrc.d"
+BASHRC="$HOME/.bashrc"
+MARKER_START="# >>> custom bashrc bundle >>>"
+MARKER_END="# <<< custom bashrc bundle <<<"
+
+if [ ! -d "$BASHRC_DIR" ] && ! grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
+  echo -e "${GRAY}[INFO]${NC}: bashrc bundle is not installed." >&3
+  return 0 2>/dev/null || exit 0
+fi
+
 echo -e "" >&3
 ui_info "Starting bashrc bundle uninstallation. Logs: $LOG_FILE"
 echo -e "" >&3
