@@ -54,10 +54,10 @@ alias sts='kubectl get statefulset'
 alias stsw='kubectl get statefulset -w'
 alias ds='kubectl get daemonset'
 alias dsw='kubectl get daemonset -w'
-alias dpods='kubectl describe pod'
-alias dsvc='kubectl describe service'
-alias ddeploy='kubectl describe deployment'
-alias dnodes='kubectl describe node'
+desc() {
+    [ -z "$1" ] && { echo "usage: desc <resource> [name]"; return 1; }
+    kubectl describe "$@"
+}
 alias logs='kubectl logs'
 alias logsf='kubectl logs -f'
 alias exec='kubectl exec -it'
