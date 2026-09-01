@@ -85,7 +85,8 @@ jobs:
           
           gh release create custom-bashrc bashrc.tar.gz \
             --title "custom-bashrc:latest" \
-            --notes-file release_notes.md
+            --notes-file release_notes.md \
+            --draft=false
           echo "::endgroup::"
 
       - name: Verify Deployment URLs
