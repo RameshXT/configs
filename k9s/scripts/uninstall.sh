@@ -88,16 +88,6 @@ BASHRC="$HOME/.bashrc"
 MARKER_START="# >>> k9s customization >>>"
 MARKER_END="# <<< k9s customization <<<"
 
-LOCKFILE="/tmp/k9s-uninstall.lock"
-exec 200>"$LOCKFILE"
-if ! flock -n 200 2>/dev/null; then
-  echo "[uninstall] ERROR: another uninstallation is currently running" >&2
-  ui_error "Another k9s uninstallation is currently running."
-  exit 1
-fi
-
-ui_ok "Verified no overlapping installations"
-
 command -v yq >/dev/null 2>&1 || { echo "[uninstall] error: yq not found in PATH" >&2; ui_error "yq not found in PATH"; exit 1; }
 ui_ok "Verified yq is installed"
 
@@ -149,5 +139,4 @@ ui_ok "Clean state confirmed"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] done."
 echo -e "\n${GREEN}[DONE]${NC}: Uninstallation complete!" >&3
 ui_ok "Shell reloaded! Customizations removed.\n"
-exec 200>&- 2>/dev/null || true
 exec bash -i </dev/tty >/dev/tty 2>&1

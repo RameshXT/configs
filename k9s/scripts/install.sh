@@ -71,14 +71,6 @@ TMP_DIR="$(mktemp -d)"
 BASHRC="$HOME/.bashrc"
 MARKER_START="# >>> k9s customization >>>"
 MARKER_END="# <<< k9s customization <<<"
-
-LOCKFILE="/tmp/k9s-install.lock"
-exec 200>"$LOCKFILE"
-if ! flock -n 200 2>/dev/null; then
-  echo "[install] ERROR: another installation is currently running" >&2
-  ui_error "Another k9s installation is currently running."
-  exit 1
-fi
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 ui_ok "Checked for existing installations"
@@ -164,5 +156,4 @@ ui_ok "Verification: All files in place"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] done."
 echo -e "\n${GREEN}[DONE]${NC}: Installation complete!" >&3
 ui_ok "Shell reloaded! All aliases are ready to use.\n"
-exec 200>&- 2>/dev/null || true
 exec bash -i </dev/tty >/dev/tty 2>&1
