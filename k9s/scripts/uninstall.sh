@@ -77,21 +77,13 @@ BASHRC="$HOME/.bashrc"
 MARKER_START="# >>> k9s customization >>>"
 MARKER_END="# <<< k9s customization <<<"
 
-LOCKFILE="/tmp/k9s-install.lock"
-if [ -e "$LOCKFILE" ]; then
-  LOCK_PID="$(cat "$LOCKFILE" 2>/dev/null || echo "")"
-  if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
-    echo "[uninstall] ERROR: another install/uninstall is already running (PID $LOCK_PID)" >&2
-    ui_error "Another install/uninstall is already running."
-    exit 1
-  else
-    echo "[uninstall] WARNING: stale lockfile found (PID $LOCK_PID not running), removing and continuing" >&2
-    ui_warn "Stale lockfile found and removed."
-    rm -f "$LOCKFILE"
-  fi
+LOCKFILE="/tmp/k9s-uninstall.lock"
+exec 200>"$LOCKFILE"
+if ! flock -n 200 2>/dev/null; then
+  echo "[uninstall] ERROR: another uninstallation is currently running" >&2
+  ui_error "Another k9s uninstallation is currently running."
+  exit 1
 fi
-echo $$ > "$LOCKFILE"
-trap 'rm -f "$LOCKFILE"' EXIT
 
 ui_ok "Verified no overlapping installations"
 
