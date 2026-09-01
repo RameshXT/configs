@@ -34,6 +34,7 @@ export VISUAL='nano'
 alias k='kubectl'
 alias pods='kubectl get pods'
 alias podsw='kubectl get pods -w'
+alias badpods='kubectl get pods --field-selector=status.phase!=Running'
 alias svc='kubectl get service'
 alias svcw='kubectl get service -w'
 alias deploy='kubectl get deployment'
@@ -54,16 +55,13 @@ alias sts='kubectl get statefulset'
 alias stsw='kubectl get statefulset -w'
 alias ds='kubectl get daemonset'
 alias dsw='kubectl get daemonset -w'
-desc() {
-    [ -z "$1" ] && { echo "usage: desc <resource> [name]"; return 1; }
-    kubectl describe "$@"
-}
 alias logs='kubectl logs'
 alias logsf='kubectl logs -f'
 alias exec='kubectl exec -it'
 alias ctx='kubectl config current-context'
 alias rst='kubectl rollout status'
 alias top='kubectl top pods'
+alias topn='kubectl top nodes'
 alias all='kubectl get all'
 alias taints="kubectl get nodes -o custom-columns='NAME:.metadata.name,TAINTS:.spec.taints'"
 alias pf='kubectl port-forward'
@@ -72,27 +70,27 @@ alias explain='kubectl explain'
 alias apply='kubectl apply -f'
 alias edit='kubectl edit'
 alias rr='kubectl rollout restart'
-
-function delete() {
-    [ -z "$1" ] && { echo "usage: delete <file.yaml>"; return 1; }
-    echo "Context: $(kubectl config current-context)"
-    echo "Command: kubectl delete -f $1"
-    read -rp "Proceed? [y/N] " confirm
-    [[ "$confirm" == "y" ]] && kubectl delete -f "$1"
+alias del='kubectl delete -f'
+alias delete='kubectl delete -f'
+alias undo='kubectl rollout undo'
+alias allimg="kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{\"/\"}{.metadata.name}{\": \"}{range .spec.containers[*]}{.image}{\" \"}{end}{\"\n\"}{end}'"
+desc() {
+    [ -z "$1" ] && { echo "usage: desc <resource> [name]"; return 1; }
+    kubectl describe "$@"
 }
-
-function rollback() {
-    [ -z "$1" ] && { echo "usage: rollback <deployment/name> [--to-revision=N]"; return 1; }
-    echo "Context: $(kubectl config current-context)"
-    echo "Command: kubectl rollout undo $*"
-    read -rp "Proceed? [y/N] " confirm
-    [[ "$confirm" == "y" ]] && kubectl rollout undo "$@"
+kyaml() {
+    [ -z "$1" ] && { echo "usage: kyaml <resource> [name]"; return 1; }
+    kubectl get "$@" -o yaml
 }
-
-function scale() {
-    [ -z "$1" ] && { echo "usage: scale <resource/name> --replicas=N"; return 1; }
-    echo "Context: $(kubectl config current-context)"
-    echo "Command: kubectl scale $*"
-    read -rp "Proceed? [y/N] " confirm
-    [[ "$confirm" == "y" ]] && kubectl scale "$@"
+img() {
+    [ -z "$1" ] && { echo "usage: img <pod-name> [namespace]"; return 1; }
+    local ns="${2:+-n $2}"
+    kubectl get pod "$1" $ns -o jsonpath='{.metadata.name}{": "}{range .spec.containers[*]}{.image}{" "}{end}{"\n"}'
+}
+nimg() {
+    local ns_flag="$*"
+    if [ -n "$1" ] && [[ "$1" != -* ]]; then
+        ns_flag="-n $1"
+    fi
+    kubectl get pods $ns_flag -o jsonpath='{range .items[*]}{.metadata.name}{": "}{range .spec.containers[*]}{.image}{" "}{end}{"\n"}{end}'
 }
