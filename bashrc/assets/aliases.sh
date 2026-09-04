@@ -74,6 +74,9 @@ alias del='kubectl delete -f'
 alias delete='kubectl delete -f'
 alias undo='kubectl rollout undo'
 alias allimg="kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{\"/\"}{.metadata.name}{\": \"}{range .spec.containers[*]}{.image}{\" \"}{end}{\"\n\"}{end}'"
+alias clusterpolicy='kubectl get clusterpolicy'
+alias policy='kubectl get policy'
+alias policya='kubectl get policy -A'
 d() {
     [ -z "$1" ] && { echo "usage: d [resource] <name>"; return 1; }
     case "$1" in
