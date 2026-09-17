@@ -1,7 +1,11 @@
 aws() {
   case "$1" in
     login)
-      local session="${2:-<YOUR_ORG_NAME>}"
+      local session="$2"
+      if [ -z "$session" ]; then
+        echo "Session name required. Use: aws login smaitic or aws login smaitik"
+        return 1
+      fi
       echo "Logging into SSO session: $session"
       if command aws sso login --sso-session "$session"; then
         echo "Login successful for session: $session"
@@ -12,14 +16,18 @@ aws() {
       ;;
 
     logout)
-      local session="${2:-<YOUR_ORG_NAME>}"
+      local session="$2"
+      if [ -z "$session" ]; then
+        echo "Session name required. Use: aws logout smaitic or aws logout smaitik"
+        return 1
+      fi
       echo "Logging out of SSO session: $session"
       if command aws sso logout; then
         unset AWS_PROFILE
         unset KUBECONFIG
         rm -f "$HOME/.aws/last-profile"
-        echo "Logout successful. AWS_PROFILE and KUBECONFIG cleared."
-        echo "Run aws login to start a new session."
+        echo "Logout successful for session: $session"
+        echo "To log back in run: aws login $session"
       else
         echo "Logout failed."
         return 1
@@ -37,19 +45,24 @@ aws() {
         return 0
       fi
 
-      local profile=""
+      local profile="" cluster="<YOUR_ORG_NAME>-production" region="ap-south-1"
       case "$target" in
         lead)  profile="<YOUR_ORG_NAME>-lead" ;;
         power) profile="<YOUR_ORG_NAME>-power" ;;
         read)  profile="<YOUR_ORG_NAME>-read" ;;
+        svpl-power)
+          profile="svpl-power"
+          cluster="smaitik-engineering"
+          region="us-east-2"
+          ;;
         "")
           echo "Missing profile name."
-          echo "Usage: aws switch lead or power or read or clear"
+          echo "Usage: aws switch lead or power or read or svpl-power or clear"
           return 1
           ;;
         *)
           echo "Unknown profile: $target"
-          echo "Usage: aws switch lead or power or read or clear"
+          echo "Usage: aws switch lead or power or read or svpl-power or clear"
           return 1
           ;;
       esac
@@ -70,8 +83,8 @@ aws() {
       local kubeconfig_path="$HOME/.kube/config-$target"
       echo "Fetching kubeconfig for $target"
       if command aws eks update-kubeconfig \
-          --name <YOUR_ORG_NAME>-production \
-          --region ap-south-1 \
+          --name "$cluster" \
+          --region "$region" \
           --profile "$profile" \
           --kubeconfig "$kubeconfig_path" \
           --alias "$target" > /dev/null 2>&1; then
@@ -154,6 +167,7 @@ aws() {
       echo "aws switch lead        -    Switch to <YOUR_ORG_NAME>-lead profile and fetch its kubeconfig."
       echo "aws switch power       -    Switch to <YOUR_ORG_NAME>-power profile and fetch its kubeconfig."
       echo "aws switch read        -    Switch to <YOUR_ORG_NAME>-read profile and fetch its kubeconfig."
+      echo "aws switch svpl-power  -    Switch to svpl-power profile (SVPL Engineering stage) and fetch its kubeconfig."
       echo "aws switch clear       -    Unset AWS_PROFILE and KUBECONFIG, keep SSO session alive."
       echo "aws status             -    Show current profile, identity, and kubectl context."
       echo "aws menu               -    Show this list."
