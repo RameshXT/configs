@@ -3,10 +3,10 @@ _aws_pick_session() {
   local prev_line=""
   while IFS= read -r line; do
     if [[ "$line" =~ ^\[sso-session[[:space:]]+([^]]+)\]$ ]]; then
-      local name="${BASH_REMATCH[1]}"
+      local name="${BASH_REMATCH[1]%$'\r'}"
       local label
       if [[ "$prev_line" =~ ^#[[:space:]]*display_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
-        label="${BASH_REMATCH[1]}"
+        label="${BASH_REMATCH[1]%$'\r'}"
       else
         label="$name"
       fi
