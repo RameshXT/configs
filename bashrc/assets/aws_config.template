@@ -1,38 +1,38 @@
-# display_name = <YOUR_ORG_PROD_DISPLAY_NAME>
-[sso-session <YOUR_ORG_PROD>]
-sso_start_url = https://<YOUR_ORG_PROD>.awsapps.com/start
+# display_name = Smaitic Labs
+[sso-session smaitic]
+sso_start_url = https://smaitic.awsapps.com/start
 sso_region = us-east-1
 sso_registration_scopes = sso:account:access
 
-# display_name = <YOUR_ORG_STAGE_DISPLAY_NAME>
-[sso-session <YOUR_ORG_STAGE>]
-sso_start_url = https://<YOUR_ORG_STAGE>.awsapps.com/start
-sso_region = us-east-1
+# display_name = Smaitik Venture
+[sso-session smaitik]
+sso_start_url = https://identitycenter.amazonaws.com/ssoins-6595235dbe91aeb5
+sso_region = ap-south-1
 sso_registration_scopes = sso:account:access
 
-[profile <YOUR_ORG_PROD>-lead]
-sso_session = <YOUR_ORG_PROD>
+[profile smaitic-lead]
+sso_session = smaitic
 sso_account_id = <YOUR_PROD_AWS_ACCOUNT_ID>
 sso_role_name = LeadUserAccess
 region = ap-south-1
 output = json
 
-[profile <YOUR_ORG_PROD>-power]
-sso_session = <YOUR_ORG_PROD>
+[profile smaitic-power]
+sso_session = smaitic
 sso_account_id = <YOUR_PROD_AWS_ACCOUNT_ID>
 sso_role_name = PowerUserAccess
 region = ap-south-1
 output = json
 
-[profile <YOUR_ORG_PROD>-read]
-sso_session = <YOUR_ORG_PROD>
+[profile smaitic-read]
+sso_session = smaitic
 sso_account_id = <YOUR_PROD_AWS_ACCOUNT_ID>
 sso_role_name = ReadOnlyAccess
 region = ap-south-1
 output = json
 
-[profile <YOUR_ORG_STAGE>-power]
-sso_session = <YOUR_ORG_STAGE>
+[profile svpl-power]
+sso_session = smaitik
 sso_account_id = <YOUR_STAGE_AWS_ACCOUNT_ID>
 sso_role_name = PowerUserAccess
 region = us-east-2

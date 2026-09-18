@@ -465,6 +465,96 @@ aws() {
       fi
       ;;
 
+    set-account|account)
+      local session="$2"
+      if [ -z "$session" ]; then
+        session=$(_aws_pick_session) || return 1
+        session="${session%$'\r'}"
+      fi
+      local disp_name
+      disp_name=$(_aws_get_display_name "$session")
+      local config_file="$HOME/.aws/config"
+      [ ! -f "$config_file" ] && { echo "Error: ~/.aws/config not found" >&2; return 1; }
+
+      local cur_acct="" cur_profile="" cur_session="" line
+      while IFS= read -r line; do
+        local clean="${line%$'\r'}"
+        if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
+          cur_profile="${BASH_REMATCH[1]%$'\r'}"
+          cur_session=""
+        elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+          cur_session="${BASH_REMATCH[1]%$'\r'}"
+          cur_session="${cur_session#"${cur_session%%[![:space:]]*}"}"
+          cur_session="${cur_session%"${cur_session##*[![:space:]]}"}"
+        elif [[ "$clean" =~ ^sso_account_id[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+          local val="${BASH_REMATCH[1]%$'\r'}"
+          val="${val#"${val%%[![:space:]]*}"}"
+          val="${val%"${val##*[![:space:]]}"}"
+          if [ "$cur_session" = "$session" ] && [[ "$val" =~ ^[0-9]{12}$ ]]; then
+            cur_acct="$val"
+            break
+          fi
+        elif [[ "$clean" =~ ^\[.*\]$ ]]; then
+          cur_profile=""
+          cur_session=""
+        fi
+      done < "$config_file"
+
+      echo "[AWS]: Configure Account ID for $disp_name"
+      if [ -n "$cur_acct" ]; then
+        echo "Current Account ID: $cur_acct"
+      else
+        echo "Current Account ID: Not configured"
+      fi
+      echo -e -n "Enter new 12-digit AWS Account ID: "
+      read -r acct_id </dev/tty
+      acct_id=$(echo "$acct_id" | tr -d ' \r\n')
+
+      if [[ ! "$acct_id" =~ ^[0-9]{12}$ ]]; then
+        echo "Invalid Account ID (must be exactly 12 numeric digits). Cancelled." >&2
+        return 1
+      fi
+
+      local tmp_file="${config_file}.tmp"
+      awk -v target_sess="$session" -v new_acct="$acct_id" '
+        function flush_block() {
+          if (block != "") {
+            if (is_profile && block_sess == target_sess) {
+              if (has_acct) {
+                sub(/sso_account_id[ \t]*=[ \t]*[^\r\n]+/, "sso_account_id = " new_acct, block)
+              } else {
+                block = block "\nsso_account_id = " new_acct
+              }
+            }
+            printf "%s", block
+            block = ""
+          }
+        }
+        /^\[/ {
+          flush_block()
+          is_profile = ($0 ~ /^\[profile /)
+          block_sess = ""
+          has_acct = 0
+          block = $0 "\n"
+          next
+        }
+        {
+          if ($0 ~ /^[ \t]*sso_session[ \t]*=/) {
+            split($0, a, "=")
+            gsub(/^[ \t]+|[ \t\r]+$/, "", a[2])
+            block_sess = a[2]
+          }
+          if ($0 ~ /^[ \t]*sso_account_id[ \t]*=/) {
+            has_acct = 1
+          }
+          block = block $0 "\n"
+        }
+        END { flush_block() }
+      ' "$config_file" > "$tmp_file" && mv "$tmp_file" "$config_file"
+
+      echo -e "\e[32m[OK]\e[0m Updated Account ID to $acct_id for $disp_name in ~/.aws/config\n"
+      ;;
+
     switch)
       local target="$2"
 
@@ -635,6 +725,7 @@ aws() {
       echo "aws logout <session>   -    Log out of SSO session."
       echo "aws switch [role]      -    Switch role (lead, power, read, or interactive picker)."
       echo "aws switch clear       -    Unset AWS_PROFILE and KUBECONFIG."
+      echo "aws set-account        -    Update AWS Account ID for an SSO session."
       echo "aws status             -    Show active account, role, and token status."
       echo "aws menu               -    Show this list."
       echo "aws <command>          -    Passes through to native AWS CLI."

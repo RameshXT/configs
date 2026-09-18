@@ -74,10 +74,6 @@ MARKER_END="# <<< custom bashrc bundle <<<"
 if [ ! -f "$AWS_CONFIG_FILE" ]; then
   mkdir -p "$AWS_CONFIG_DIR"
   cp "$SCRIPT_DIR/../assets/aws_config.template" "$AWS_CONFIG_FILE"
-  sed -i "s/<YOUR_ORG_PROD_DISPLAY_NAME>/Smaitic Labs/g" "$AWS_CONFIG_FILE"
-  sed -i "s/<YOUR_ORG_PROD>/smaitic/g" "$AWS_CONFIG_FILE"
-  sed -i "s/<YOUR_ORG_STAGE_DISPLAY_NAME>/Smaitik Venture/g" "$AWS_CONFIG_FILE"
-  sed -i "s/<YOUR_ORG_STAGE>/smaitik/g" "$AWS_CONFIG_FILE"
   ui_ok "AWS: Initialized template in ~/.aws/config"
 else
   ui_ok "AWS: Configuration already exists, skipping template creation"
