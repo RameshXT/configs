@@ -94,14 +94,39 @@ _aws_get_display_name() {
 }
 
 _aws_pick_profile() {
+  local target_session="$1"
   local -a profiles
-  local line
+  local cur_profile="" cur_session="" line
   while IFS= read -r line; do
     local clean="${line%$'\r'}"
     if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
-      profiles+=("${BASH_REMATCH[1]%$'\r'}")
+      if [ -n "$cur_profile" ]; then
+        if [ -z "$target_session" ] || [ "$cur_session" = "$target_session" ]; then
+          profiles+=("$cur_profile")
+        fi
+      fi
+      cur_profile="${BASH_REMATCH[1]%$'\r'}"
+      cur_session=""
+    elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_session="${BASH_REMATCH[1]%$'\r'}"
+      cur_session="${cur_session#"${cur_session%%[![:space:]]*}"}"
+      cur_session="${cur_session%"${cur_session##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^\[.*\]$ ]]; then
+      if [ -n "$cur_profile" ]; then
+        if [ -z "$target_session" ] || [ "$cur_session" = "$target_session" ]; then
+          profiles+=("$cur_profile")
+        fi
+        cur_profile=""
+        cur_session=""
+      fi
     fi
   done < "$HOME/.aws/config"
+
+  if [ -n "$cur_profile" ]; then
+    if [ -z "$target_session" ] || [ "$cur_session" = "$target_session" ]; then
+      profiles+=("$cur_profile")
+    fi
+  fi
 
   [ ${#profiles[@]} -eq 0 ] && { echo "No profiles in ~/.aws/config" >&2; return 1; }
 
@@ -190,7 +215,7 @@ aws() {
 
       if [ -z "$target" ]; then
         local selected
-        selected=$(_aws_pick_profile) || return 1
+        selected=$(_aws_pick_profile "$_last_sess") || return 1
         export AWS_PROFILE="$selected"
         echo "Verifying credentials for $selected"
         local identity
