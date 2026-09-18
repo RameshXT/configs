@@ -50,9 +50,10 @@ else
   ui_warn "Configuration directory $BASHRC_DIR not found"
 fi
 
-rm -f "$HOME/.aws/last-session" "$HOME/.aws/last-profile" "$HOME/.aws/last-kubeconfig"
+rm -f "$HOME/.aws/last-session" "$HOME/.aws/last-profile" "$HOME/.aws/last-kubeconfig" "$HOME/.aws/config"
+rmdir "$HOME/.aws" 2>/dev/null
 rm -f "$HOME/.kube"/config-smaitic-* "$HOME/.kube"/config-smaitik-*
-ui_ok "Cleaned up AWS session and kubeconfig state files"
+ui_ok "Removed ~/.aws configuration, session, and kubeconfig state"
 
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   awk -v start="$MARKER_START" -v end="$MARKER_END" '
@@ -63,15 +64,6 @@ if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   ui_ok "Removed source loop from ~/.bashrc"
 else
   ui_info "No source loop found in ~/.bashrc"
-fi
-
-echo -e -n "\n${YELLOW}Do you also want to delete ~/.aws/config for a completely clean slate? (y/n): ${NC}" >&3
-read -r del_aws </dev/tty
-if [[ "$del_aws" =~ ^[Yy]$ ]]; then
-  rm -f "$HOME/.aws/config"
-  ui_ok "Removed ~/.aws/config"
-else
-  ui_info "Preserved ~/.aws/config"
 fi
 ui_ok "Clean state confirmed"
 echo -e "\n${GREEN}[DONE]${NC}: Uninstallation complete!" >&3
