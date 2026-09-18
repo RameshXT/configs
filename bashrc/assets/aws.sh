@@ -220,6 +220,45 @@ _aws_resolve_profile() {
   fi
 }
 
+_aws_fetch_kubeconfig() {
+  local profile="$1" session="$2" region="$3" role_name="$4"
+  local cluster=""
+
+  if [ "$session" = "smaitik" ]; then
+    cluster="smaitik-engineering"
+  else
+    cluster="smaitic-production"
+  fi
+
+  [ -z "$region" ] && region="ap-south-1"
+
+  local kubeconfig_path="$HOME/.kube/config-$session-$profile"
+  echo "Fetching kubeconfig for $role_name ($cluster in $region)..."
+  mkdir -p "$HOME/.kube"
+
+  if command aws eks update-kubeconfig \
+      --name "$cluster" \
+      --region "$region" \
+      --profile "$profile" \
+      --kubeconfig "$kubeconfig_path" \
+      --alias "$role_name" > /dev/null 2>&1; then
+    export KUBECONFIG="$kubeconfig_path"
+    chmod 600 "$kubeconfig_path"
+    mkdir -p "$HOME/.aws"
+    echo "$kubeconfig_path" > "$HOME/.aws/last-kubeconfig"
+    echo "Kubeconfig ready: $kubeconfig_path"
+    local kctx
+    kctx=$(kubectl --kubeconfig "$kubeconfig_path" config current-context 2>/dev/null)
+    if kubectl --kubeconfig "$kubeconfig_path" get ns > /dev/null 2>&1; then
+      echo "kubectl context: $kctx (cluster reachable)"
+    else
+      echo "kubectl context: $kctx"
+    fi
+  else
+    echo "Notice: Could not fetch kubeconfig for cluster '$cluster' (region: $region)."
+  fi
+}
+
 _aws_pick_profile() {
   local target_session="$1"
   local -a profiles labels
@@ -325,6 +364,7 @@ aws() {
         unset AWS_PROFILE
         unset KUBECONFIG
         rm -f "$HOME/.aws/last-profile"
+        rm -f "$HOME/.aws/last-kubeconfig"
         echo "Logout successful for session: $session"
         echo "To log back in run: aws login $session"
       else
@@ -347,6 +387,7 @@ aws() {
         unset AWS_PROFILE
         unset KUBECONFIG
         rm -f "$HOME/.aws/last-profile"
+        rm -f "$HOME/.aws/last-kubeconfig"
         echo "AWS_PROFILE and KUBECONFIG cleared. SSO session is still active."
         return 0
       fi
@@ -377,6 +418,8 @@ aws() {
         echo "Role: $role"
         mkdir -p "$HOME/.aws"
         echo "$selected" > "$HOME/.aws/last-profile"
+
+        _aws_fetch_kubeconfig "$selected" "$_last_sess" "" "$role_display"
         return 0
       fi
 
@@ -416,6 +459,8 @@ aws() {
 
       mkdir -p "$HOME/.aws"
       echo "$m_prof" > "$HOME/.aws/last-profile"
+
+      _aws_fetch_kubeconfig "$m_prof" "$_last_sess" "$m_reg" "$m_role"
       return 0
       ;;
 
@@ -519,4 +564,12 @@ if [ -s "$HOME/.aws/last-profile" ]; then
     export AWS_PROFILE="$_last_prof"
   fi
   unset _last_prof
+fi
+
+if [ -s "$HOME/.aws/last-kubeconfig" ]; then
+  _last_kcfg=$(cat "$HOME/.aws/last-kubeconfig" 2>/dev/null | tr -d $'\r')
+  if [ -f "$_last_kcfg" ]; then
+    export KUBECONFIG="$_last_kcfg"
+  fi
+  unset _last_kcfg
 fi
