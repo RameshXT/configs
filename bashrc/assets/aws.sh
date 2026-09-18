@@ -108,6 +108,92 @@ _aws_get_display_name() {
   esac
 }
 
+_aws_ensure_account_id() {
+  local session="$1"
+  local acct_id="" cur_profile="" cur_session="" line needs_update=0
+  local config_file="$HOME/.aws/config"
+
+  [ ! -f "$config_file" ] && return 0
+
+  while IFS= read -r line; do
+    local clean="${line%$'\r'}"
+    if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
+      cur_profile="${BASH_REMATCH[1]%$'\r'}"
+      cur_session=""
+    elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_session="${BASH_REMATCH[1]%$'\r'}"
+      cur_session="${cur_session#"${cur_session%%[![:space:]]*}"}"
+      cur_session="${cur_session%"${cur_session##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^sso_account_id[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      local val="${BASH_REMATCH[1]%$'\r'}"
+      val="${val#"${val%%[![:space:]]*}"}"
+      val="${val%"${val##*[![:space:]]}"}"
+      if [ "$cur_session" = "$session" ]; then
+        if [[ ! "$val" =~ ^[0-9]{12}$ ]]; then
+          needs_update=1
+          break
+        fi
+      fi
+    elif [[ "$clean" =~ ^\[.*\]$ ]]; then
+      cur_profile=""
+      cur_session=""
+    fi
+  done < "$config_file"
+
+  if [ $needs_update -eq 1 ]; then
+    local disp_name
+    disp_name=$(_aws_get_display_name "$session")
+    echo -e -n "\n\e[33m[AWS]\e[0m Account ID not configured for \e[32m$disp_name\e[0m.\nEnter 12-digit AWS Account ID: " >&2
+    read -r acct_id </dev/tty
+    acct_id=$(echo "$acct_id" | tr -d ' \r\n')
+
+    if [[ ! "$acct_id" =~ ^[0-9]{12}$ ]]; then
+      echo "Invalid Account ID (must be exactly 12 numeric digits). Aborting login." >&2
+      return 1
+    fi
+
+    local tmp_file="${config_file}.tmp"
+    awk -v target_sess="$session" -v new_acct="$acct_id" '
+      function flush_block() {
+        if (block != "") {
+          if (is_profile && block_sess == target_sess) {
+            if (has_acct) {
+              sub(/sso_account_id[ \t]*=[ \t]*[^\r\n]+/, "sso_account_id = " new_acct, block)
+            } else {
+              block = block "\nsso_account_id = " new_acct
+            }
+          }
+          printf "%s", block
+          block = ""
+        }
+      }
+      /^\[/ {
+        flush_block()
+        is_profile = ($0 ~ /^\[profile /)
+        block_sess = ""
+        has_acct = 0
+        block = $0 "\n"
+        next
+      }
+      {
+        if ($0 ~ /^[ \t]*sso_session[ \t]*=/) {
+          split($0, a, "=")
+          gsub(/^[ \t]+|[ \t\r]+$/, "", a[2])
+          block_sess = a[2]
+        }
+        if ($0 ~ /^[ \t]*sso_account_id[ \t]*=/) {
+          has_acct = 1
+        }
+        block = block $0 "\n"
+      }
+      END { flush_block() }
+    ' "$config_file" > "$tmp_file" && mv "$tmp_file" "$config_file"
+
+    echo -e "\e[32m[OK]\e[0m Saved Account ID $acct_id for $disp_name in ~/.aws/config\n" >&2
+  fi
+  return 0
+}
+
 _aws_get_profile_info() {
   local target_prof="$1"
   local cur_profile="" cur_session="" cur_role="" line
@@ -343,6 +429,7 @@ aws() {
         session=$(_aws_pick_session) || return 1
         session="${session%$'\r'}"
       fi
+      _aws_ensure_account_id "$session" || return 1
       echo "Logging into SSO session: $session"
       if command aws sso login --sso-session "$session"; then
         echo "Login successful for session: $session"

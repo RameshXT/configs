@@ -72,24 +72,15 @@ MARKER_START="# >>> custom bashrc bundle >>>"
 MARKER_END="# <<< custom bashrc bundle <<<"
 
 if [ ! -f "$AWS_CONFIG_FILE" ]; then
-  echo -e -n "\n${YELLOW}AWS config not found. Please enter your AWS SSO Organization Name: ${NC}" >&3
-  read -r ORG_NAME </dev/tty
-  echo -e -n "${YELLOW}Please enter your AWS Account ID: ${NC}" >&3
-  read -r ACCOUNT_ID </dev/tty
-  
-  if [ -z "$ORG_NAME" ] || [ -z "$ACCOUNT_ID" ]; then
-    echo "[install] error: missing org name or account id" >&2
-    ui_error "Organization name and Account ID are required for first-time setup."
-    exit 1
-  fi
-  
   mkdir -p "$AWS_CONFIG_DIR"
   cp "$SCRIPT_DIR/../assets/aws_config.template" "$AWS_CONFIG_FILE"
-  sed -i "s/<YOUR_ORG_NAME>/$ORG_NAME/g" "$AWS_CONFIG_FILE"
-  sed -i "s/<YOUR_AWS_ACCOUNT_ID>/$ACCOUNT_ID/g" "$AWS_CONFIG_FILE"
-  ui_ok "AWS: Generated configuration securely in ~/.aws/config"
+  sed -i "s/<YOUR_ORG_PROD_DISPLAY_NAME>/Smaitic Labs/g" "$AWS_CONFIG_FILE"
+  sed -i "s/<YOUR_ORG_PROD>/smaitic/g" "$AWS_CONFIG_FILE"
+  sed -i "s/<YOUR_ORG_STAGE_DISPLAY_NAME>/Smaitik Venture/g" "$AWS_CONFIG_FILE"
+  sed -i "s/<YOUR_ORG_STAGE>/smaitik/g" "$AWS_CONFIG_FILE"
+  ui_ok "AWS: Initialized template in ~/.aws/config"
 else
-  ui_ok "AWS: Configuration already exists, skipping prompt"
+  ui_ok "AWS: Configuration already exists, skipping template creation"
 fi
 
 ORG_NAME=$(grep "sso_session =" "$AWS_CONFIG_FILE" | head -n 1 | awk '{print $3}')
