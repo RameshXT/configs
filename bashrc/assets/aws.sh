@@ -414,36 +414,9 @@ aws() {
       echo "Switched to: $m_role"
       echo "Role: $role"
 
-      local cluster="<YOUR_ORG_NAME>-production"
-      if [ "$_last_sess" = "smaitik" ]; then
-        cluster="smaitik-engineering"
-      fi
-
-      local kubeconfig_path="$HOME/.kube/config-$target"
-      echo "Fetching kubeconfig for $target"
-      if command aws eks update-kubeconfig \
-          --name "$cluster" \
-          --region "$m_reg" \
-          --profile "$m_prof" \
-          --kubeconfig "$kubeconfig_path" \
-          --alias "$target" > /dev/null 2>&1; then
-        export KUBECONFIG="$kubeconfig_path"
-        chmod 600 "$kubeconfig_path"
-        echo "Kubeconfig ready: $kubeconfig_path"
-        mkdir -p "$HOME/.aws"
-        echo "$target" > "$HOME/.aws/last-profile"
-        local kctx
-        kctx=$(kubectl --kubeconfig "$kubeconfig_path" config current-context 2>&1)
-        if kubectl --kubeconfig "$kubeconfig_path" get ns > /dev/null 2>&1; then
-          echo "kubectl context: $kctx (cluster reachable)"
-        else
-          echo "kubectl context: $kctx (cluster not reachable, check RBAC or network)"
-        fi
-      else
-        echo "Failed to fetch kubeconfig for $target."
-        echo "Check EKS cluster name, region, and IAM permissions for $m_prof."
-        return 1
-      fi
+      mkdir -p "$HOME/.aws"
+      echo "$m_prof" > "$HOME/.aws/last-profile"
+      return 0
       ;;
 
     status)
@@ -521,16 +494,13 @@ aws() {
       ;;
 
     menu)
-      echo "aws login [session]    -    Log into SSO. Default session is <YOUR_ORG_NAME>."
-      echo "aws logout             -    Log out of SSO. Clears token, AWS_PROFILE, KUBECONFIG."
-      echo "aws switch lead        -    Switch to <YOUR_ORG_NAME>-lead profile and fetch its kubeconfig."
-      echo "aws switch power       -    Switch to <YOUR_ORG_NAME>-power profile and fetch its kubeconfig."
-      echo "aws switch read        -    Switch to <YOUR_ORG_NAME>-read profile and fetch its kubeconfig."
-      echo "aws switch svpl-power  -    Switch to svpl-power profile (SVPL Engineering stage) and fetch its kubeconfig."
-      echo "aws switch clear       -    Unset AWS_PROFILE and KUBECONFIG, keep SSO session alive."
-      echo "aws status             -    Show current profile, identity, and kubectl context."
+      echo "aws login [session]    -    Log into SSO (interactive selector if omitted)."
+      echo "aws logout <session>   -    Log out of SSO session."
+      echo "aws switch [role]      -    Switch role (lead, power, read, or interactive picker)."
+      echo "aws switch clear       -    Unset AWS_PROFILE and KUBECONFIG."
+      echo "aws status             -    Show active account, role, and token status."
       echo "aws menu               -    Show this list."
-      echo "aws anything-else      -    Passes through to normal AWS CLI."
+      echo "aws <command>          -    Passes through to native AWS CLI."
       ;;
 
     *)
@@ -544,12 +514,9 @@ if command -v aws_completer &> /dev/null; then
 fi
 
 if [ -s "$HOME/.aws/last-profile" ]; then
-  _last_role=$(cat "$HOME/.aws/last-profile" 2>/dev/null)
-  case "$_last_role" in
-    lead|power|read)
-      export AWS_PROFILE="<YOUR_ORG_NAME>-$_last_role"
-      export KUBECONFIG="$HOME/.kube/config-$_last_role"
-      ;;
-  esac
-  unset _last_role
+  _last_prof=$(cat "$HOME/.aws/last-profile" 2>/dev/null | tr -d $'\r')
+  if [ -n "$_last_prof" ]; then
+    export AWS_PROFILE="$_last_prof"
+  fi
+  unset _last_prof
 fi
