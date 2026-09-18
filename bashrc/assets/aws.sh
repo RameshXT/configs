@@ -1,10 +1,84 @@
+_aws_pick_session() {
+  local -a sessions labels
+  local prev_line=""
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^\[sso-session[[:space:]]+([^]]+)\]$ ]]; then
+      local name="${BASH_REMATCH[1]}"
+      local label
+      if [[ "$prev_line" =~ ^#[[:space:]]*display_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+        label="${BASH_REMATCH[1]}"
+      else
+        label="$name"
+      fi
+      sessions+=("$name")
+      labels+=("$label")
+    fi
+    prev_line="$line"
+  done < "$HOME/.aws/config"
+
+  if [ ${#sessions[@]} -eq 0 ]; then
+    echo "No sso-session blocks found in ~/.aws/config" >&2
+    return 1
+  fi
+
+  local idx=0 total=${#labels[@]}
+  local ESC=$'\033'
+
+  tput civis 2>/dev/null
+  trap 'tput cnorm 2>/dev/null' RETURN INT TERM
+
+  local i
+  for i in "${!labels[@]}"; do
+    if [ "$i" -eq "$idx" ]; then
+      printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2
+    else
+      printf "  %s\n" "${labels[$i]}" >&2
+    fi
+  done
+
+  while true; do
+    IFS= read -rsn1 key
+    if [[ "$key" == "$ESC" ]]; then
+      IFS= read -rsn2 -t 0.1 seq
+      key="$ESC$seq"
+    fi
+    case "$key" in
+      "${ESC}[A"|"k")
+        (( idx = (idx - 1 + total) % total ))
+        ;;
+      "${ESC}[B"|"j")
+        (( idx = (idx + 1) % total ))
+        ;;
+      "")
+        break
+        ;;
+      "q"|$'\x03')
+        tput cnorm 2>/dev/null
+        printf "\n" >&2
+        return 1
+        ;;
+    esac
+    printf "\e[%dA" "$total" >&2
+    for i in "${!labels[@]}"; do
+      if [ "$i" -eq "$idx" ]; then
+        printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2
+      else
+        printf "  %s\n" "${labels[$i]}" >&2
+      fi
+    done
+  done
+
+  tput cnorm 2>/dev/null
+  printf "\n" >&2
+  echo "${sessions[$idx]}"
+}
+
 aws() {
   case "$1" in
     login)
       local session="$2"
       if [ -z "$session" ]; then
-        echo "Session name required. Use: aws login smaitic or aws login smaitik"
-        return 1
+        session=$(_aws_pick_session) || return 1
       fi
       echo "Logging into SSO session: $session"
       if command aws sso login --sso-session "$session"; then

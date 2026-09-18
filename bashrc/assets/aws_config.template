@@ -1,25 +1,39 @@
-[sso-session <YOUR_ORG_NAME>]
-sso_start_url = https://<YOUR_ORG_NAME>.awsapps.com/start
+# display_name = <YOUR_ORG_PROD_DISPLAY_NAME>
+[sso-session <YOUR_ORG_PROD>]
+sso_start_url = https://<YOUR_ORG_PROD>.awsapps.com/start
 sso_region = us-east-1
 sso_registration_scopes = sso:account:access
 
-[profile <YOUR_ORG_NAME>-lead]
-sso_session = <YOUR_ORG_NAME>
-sso_account_id = <YOUR_AWS_ACCOUNT_ID>
+# display_name = <YOUR_ORG_STAGE_DISPLAY_NAME>
+[sso-session <YOUR_ORG_STAGE>]
+sso_start_url = https://<YOUR_ORG_STAGE>.awsapps.com/start
+sso_region = us-east-1
+sso_registration_scopes = sso:account:access
+
+[profile <YOUR_ORG_PROD>-lead]
+sso_session = <YOUR_ORG_PROD>
+sso_account_id = <YOUR_PROD_AWS_ACCOUNT_ID>
 sso_role_name = LeadUserAccess
 region = ap-south-1
 output = json
 
-[profile <YOUR_ORG_NAME>-power]
-sso_session = <YOUR_ORG_NAME>
-sso_account_id = <YOUR_AWS_ACCOUNT_ID>
+[profile <YOUR_ORG_PROD>-power]
+sso_session = <YOUR_ORG_PROD>
+sso_account_id = <YOUR_PROD_AWS_ACCOUNT_ID>
 sso_role_name = PowerUserAccess
 region = ap-south-1
 output = json
 
-[profile <YOUR_ORG_NAME>-read]
-sso_session = <YOUR_ORG_NAME>
-sso_account_id = <YOUR_AWS_ACCOUNT_ID>
+[profile <YOUR_ORG_PROD>-read]
+sso_session = <YOUR_ORG_PROD>
+sso_account_id = <YOUR_PROD_AWS_ACCOUNT_ID>
 sso_role_name = ReadOnlyAccess
 region = ap-south-1
+output = json
+
+[profile <YOUR_ORG_STAGE>-power]
+sso_session = <YOUR_ORG_STAGE>
+sso_account_id = <YOUR_STAGE_AWS_ACCOUNT_ID>
+sso_role_name = PowerUserAccess
+region = us-east-2
 output = json
