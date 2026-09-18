@@ -12,8 +12,8 @@ sso_registration_scopes = sso:account:access
 
 # display_name = Smaitic Venture Prod
 [sso-session smaitik-prod]
-sso_start_url = https://smaitik.awsapps.com/start
-sso_region = us-east-1
+sso_start_url = https://identitycenter.amazonaws.com/ssoins-6595235dbe91aeb5
+sso_region = ap-south-1
 sso_registration_scopes = sso:account:access
 
 [profile smaitic-lead]
