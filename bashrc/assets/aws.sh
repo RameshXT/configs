@@ -356,17 +356,22 @@ aws() {
     logout)
       local session="$2"
       if [ -z "$session" ]; then
-        echo "Session name required. Use: aws logout smaitic or aws logout smaitik"
-        return 1
+        session=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
       fi
-      echo "Logging out of SSO session: $session"
+      if [ -z "$session" ]; then
+        echo "Not logged into any SSO session."
+        return 0
+      fi
+      local _disp
+      _disp=$(_aws_get_display_name "$session")
+      echo "Logging out of SSO session: $_disp"
       if command aws sso logout; then
         unset AWS_PROFILE
         unset KUBECONFIG
         rm -f "$HOME/.aws/last-profile"
         rm -f "$HOME/.aws/last-kubeconfig"
-        echo "Logout successful for session: $session"
-        echo "To log back in run: aws login $session"
+        rm -f "$HOME/.aws/last-session"
+        echo "Logout successful for: $_disp"
       else
         echo "Logout failed."
         return 1
