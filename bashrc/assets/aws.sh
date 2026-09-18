@@ -24,8 +24,8 @@ _aws_pick_session() {
   local idx=0 total=${#labels[@]}
   local ESC=$'\033'
 
-  tput civis 2>/dev/null
-  trap 'tput cnorm 2>/dev/null' RETURN INT TERM
+  tput civis >/dev/tty 2>/dev/null
+  trap 'tput cnorm >/dev/tty 2>/dev/null' RETURN INT TERM
 
   local i
   for i in "${!labels[@]}"; do
@@ -53,7 +53,7 @@ _aws_pick_session() {
         break
         ;;
       "q"|$'\x03')
-        tput cnorm 2>/dev/null
+        tput cnorm >/dev/tty 2>/dev/null
         printf "\n" >&2
         return 1
         ;;
@@ -68,7 +68,7 @@ _aws_pick_session() {
     done
   done
 
-  tput cnorm 2>/dev/null
+  tput cnorm >/dev/tty 2>/dev/null
   printf "\n" >&2
   echo "${sessions[$idx]}"
 }
@@ -106,8 +106,8 @@ _aws_pick_profile() {
   [ ${#profiles[@]} -eq 0 ] && { echo "No profiles in ~/.aws/config" >&2; return 1; }
 
   local idx=0 total=${#profiles[@]} ESC=$'\033' i
-  tput civis 2>/dev/null
-  trap 'tput cnorm 2>/dev/null' RETURN INT TERM
+  tput civis >/dev/tty 2>/dev/null
+  trap 'tput cnorm >/dev/tty 2>/dev/null' RETURN INT TERM
 
   for i in "${!profiles[@]}"; do
     [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${profiles[$i]}" >&2 || printf "  %s\n" "${profiles[$i]}" >&2
@@ -120,7 +120,7 @@ _aws_pick_profile() {
       "${ESC}[A"|"k") (( idx = (idx - 1 + total) % total )) ;;
       "${ESC}[B"|"j") (( idx = (idx + 1) % total )) ;;
       "") break ;;
-      "q"|$'\x03') tput cnorm 2>/dev/null; printf "\n" >&2; return 1 ;;
+      "q"|$'\x03') tput cnorm >/dev/tty 2>/dev/null; printf "\n" >&2; return 1 ;;
     esac
     printf "\e[%dA" "$total" >&2
     for i in "${!profiles[@]}"; do
@@ -128,7 +128,7 @@ _aws_pick_profile() {
     done
   done
 
-  tput cnorm 2>/dev/null
+  tput cnorm >/dev/tty 2>/dev/null
   printf "\n" >&2
   echo "${profiles[$idx]}"
 }
