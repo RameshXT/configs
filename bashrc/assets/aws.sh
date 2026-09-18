@@ -108,6 +108,118 @@ _aws_get_display_name() {
   esac
 }
 
+_aws_get_profile_info() {
+  local target_prof="$1"
+  local cur_profile="" cur_session="" cur_role="" line
+  while IFS= read -r line; do
+    local clean="${line%$'\r'}"
+    if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
+      if [ "$cur_profile" = "$target_prof" ]; then
+        echo "$cur_session|$cur_role"
+        return 0
+      fi
+      cur_profile="${BASH_REMATCH[1]%$'\r'}"
+      cur_session=""
+      cur_role=""
+    elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_session="${BASH_REMATCH[1]%$'\r'}"
+      cur_session="${cur_session#"${cur_session%%[![:space:]]*}"}"
+      cur_session="${cur_session%"${cur_session##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^sso_role_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_role="${BASH_REMATCH[1]%$'\r'}"
+      cur_role="${cur_role#"${cur_role%%[![:space:]]*}"}"
+      cur_role="${cur_role%"${cur_role##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^\[.*\]$ ]]; then
+      if [ "$cur_profile" = "$target_prof" ]; then
+        echo "$cur_session|$cur_role"
+        return 0
+      fi
+      cur_profile=""
+      cur_session=""
+      cur_role=""
+    fi
+  done < "$HOME/.aws/config"
+  if [ "$cur_profile" = "$target_prof" ]; then
+    echo "$cur_session|$cur_role"
+    return 0
+  fi
+}
+
+_aws_resolve_profile() {
+  local target="$1" target_sess="$2"
+  local cur_profile="" cur_session="" cur_role="" cur_region="" line
+  local -a avail_roles
+  local cross_session="" cross_role="" matched_prof="" matched_role="" matched_reg=""
+
+  _check_prof() {
+    if [ -n "$cur_profile" ]; then
+      local is_match=0
+      local t_lower=$(echo "$target" | tr '[:upper:]' '[:lower:]')
+      local r_lower=$(echo "$cur_role" | tr '[:upper:]' '[:lower:]')
+      local p_lower=$(echo "$cur_profile" | tr '[:upper:]' '[:lower:]')
+
+      if [ "$t_lower" = "$p_lower" ] || [ "$t_lower" = "$r_lower" ] || \
+         [ "$t_lower" = "power" -a "${r_lower}" = "poweruseraccess" ] || \
+         [ "$t_lower" = "read" -a "${r_lower}" = "readonlyaccess" ] || \
+         [ "$t_lower" = "lead" -a "${r_lower}" = "leaduseraccess" ]; then
+        is_match=1
+      fi
+
+      if [ "$cur_session" = "$target_sess" ]; then
+        avail_roles+=("${cur_role:-$cur_profile}")
+        if [ $is_match -eq 1 ]; then
+          matched_prof="$cur_profile"
+          matched_role="${cur_role:-$cur_profile}"
+          matched_reg="${cur_region:-ap-south-1}"
+        fi
+      elif [ $is_match -eq 1 ]; then
+        cross_session="$cur_session"
+        cross_role="${cur_role:-$cur_profile}"
+      fi
+    fi
+  }
+
+  while IFS= read -r line; do
+    local clean="${line%$'\r'}"
+    if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
+      _check_prof
+      cur_profile="${BASH_REMATCH[1]%$'\r'}"
+      cur_session=""
+      cur_role=""
+      cur_region=""
+    elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_session="${BASH_REMATCH[1]%$'\r'}"
+      cur_session="${cur_session#"${cur_session%%[![:space:]]*}"}"
+      cur_session="${cur_session%"${cur_session##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^sso_role_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_role="${BASH_REMATCH[1]%$'\r'}"
+      cur_role="${cur_role#"${cur_role%%[![:space:]]*}"}"
+      cur_role="${cur_role%"${cur_role##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^region[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_region="${BASH_REMATCH[1]%$'\r'}"
+      cur_region="${cur_region#"${cur_region%%[![:space:]]*}"}"
+      cur_region="${cur_region%"${cur_region##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^\[.*\]$ ]]; then
+      _check_prof
+      cur_profile=""
+      cur_session=""
+      cur_role=""
+      cur_region=""
+    fi
+  done < "$HOME/.aws/config"
+  _check_prof
+  unset -f _check_prof
+
+  if [ -n "$matched_prof" ]; then
+    echo "MATCH|$matched_prof|$matched_role|$matched_reg"
+  elif [ -n "$cross_session" ]; then
+    local cross_name=$(_aws_get_display_name "$cross_session")
+    echo "CROSS|$cross_name|$cross_role|${avail_roles[*]}"
+  else
+    echo "NONE|${avail_roles[*]}"
+  fi
+}
+
 _aws_pick_profile() {
   local target_session="$1"
   local -a profiles labels
@@ -247,57 +359,72 @@ aws() {
         local selected
         selected=$(_aws_pick_profile "$_last_sess") || return 1
         export AWS_PROFILE="$selected"
-        echo "Verifying credentials for $selected"
+
+        local prof_info role_display
+        prof_info=$(_aws_get_profile_info "$selected")
+        role_display="${prof_info##*|}"
+        [ -z "$role_display" ] && role_display="$selected"
+
+        echo "Verifying credentials for $role_display"
         local identity
         identity=$(command aws sts get-caller-identity --output json 2>&1)
         if [ $? -ne 0 ]; then
-          echo "Session check failed for $selected. Run: aws login"
+          echo "Session check failed for $role_display. Run: aws login"
           return 1
         fi
         local role=$(echo "$identity" | grep -o '"Arn":[^,]*' | sed 's/.*assumed-role\///;s/".*//')
-        echo "Switched to: $selected"
+        echo "Switched to: $role_display"
         echo "Role: $role"
         mkdir -p "$HOME/.aws"
         echo "$selected" > "$HOME/.aws/last-profile"
         return 0
       fi
 
-      local profile="" cluster="<YOUR_ORG_NAME>-production" region="ap-south-1"
-      case "$target" in
-        lead)  profile="<YOUR_ORG_NAME>-lead" ;;
-        power) profile="<YOUR_ORG_NAME>-power" ;;
-        read)  profile="<YOUR_ORG_NAME>-read" ;;
-        svpl-power)
-          profile="svpl-power"
-          cluster="smaitik-engineering"
-          region="us-east-2"
-          ;;
-        *)
-          echo "Unknown profile: $target"
-          echo "Usage: aws switch lead or power or read or svpl-power or clear"
-          return 1
-          ;;
-      esac
+      local res status_code m_prof m_role m_reg
+      res=$(_aws_resolve_profile "$target" "$_last_sess")
+      status_code=$(echo "$res" | cut -d'|' -f1)
 
-      export AWS_PROFILE="$profile"
-      echo "Verifying credentials for $profile"
+      if [ "$status_code" = "CROSS" ]; then
+        local cross_acc=$(echo "$res" | cut -d'|' -f2)
+        local roles=$(echo "$res" | cut -d'|' -f4)
+        echo "Error: Role '$target' belongs to $cross_acc. You are currently logged into $_acct_name."
+        echo "Available roles under $_acct_name: $roles"
+        return 1
+      elif [ "$status_code" = "NONE" ]; then
+        local roles=$(echo "$res" | cut -d'|' -f2)
+        echo "Error: Unknown role '$target'."
+        echo "Available roles under $_acct_name: $roles"
+        return 1
+      fi
+
+      m_prof=$(echo "$res" | cut -d'|' -f2)
+      m_role=$(echo "$res" | cut -d'|' -f3)
+      m_reg=$(echo "$res" | cut -d'|' -f4)
+
+      export AWS_PROFILE="$m_prof"
+      echo "Verifying credentials for $m_role"
       local identity
       identity=$(command aws sts get-caller-identity --output json 2>&1)
       if [ $? -ne 0 ]; then
-        echo "Profile set to $profile but session check failed."
+        echo "Profile set to $m_prof but session check failed."
         echo "You likely need to run: aws login"
         return 1
       fi
       local role=$(echo "$identity" | grep -o '"Arn":[^,]*' | sed 's/.*assumed-role\///;s/".*//')
-      echo "Switched to: $profile"
+      echo "Switched to: $m_role"
       echo "Role: $role"
+
+      local cluster="<YOUR_ORG_NAME>-production"
+      if [ "$_last_sess" = "smaitik" ]; then
+        cluster="smaitik-engineering"
+      fi
 
       local kubeconfig_path="$HOME/.kube/config-$target"
       echo "Fetching kubeconfig for $target"
       if command aws eks update-kubeconfig \
           --name "$cluster" \
-          --region "$region" \
-          --profile "$profile" \
+          --region "$m_reg" \
+          --profile "$m_prof" \
           --kubeconfig "$kubeconfig_path" \
           --alias "$target" > /dev/null 2>&1; then
         export KUBECONFIG="$kubeconfig_path"
@@ -314,23 +441,43 @@ aws() {
         fi
       else
         echo "Failed to fetch kubeconfig for $target."
-        echo "Check EKS cluster name, region, and IAM permissions for $profile."
+        echo "Check EKS cluster name, region, and IAM permissions for $m_prof."
         return 1
       fi
       ;;
 
     status)
+      local _last_sess
+      _last_sess=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
+
       if [ -z "$AWS_PROFILE" ]; then
-        echo "No AWS_PROFILE set. Run: aws switch lead or power or read"
+        if [ -n "$_last_sess" ]; then
+          local _acct_name=$(_aws_get_display_name "$_last_sess")
+          echo "[AWS]: $_acct_name"
+          echo "Status: No role selected. Run: aws switch"
+        else
+          echo "Status: Not logged in. Run: aws login"
+        fi
         return 1
       fi
-      echo "Current profile: $AWS_PROFILE"
+
+      local prof_info sess role_name
+      prof_info=$(_aws_get_profile_info "$AWS_PROFILE")
+      sess="${prof_info%%|*}"
+      role_name="${prof_info##*|}"
+      [ -z "$sess" ] && sess="$_last_sess"
+      if [ -n "$sess" ]; then
+        local _acct_name=$(_aws_get_display_name "$sess")
+        echo "[AWS]: $_acct_name"
+      fi
+      [ -n "$role_name" ] && echo "Role: $role_name"
+
       local identity
       identity=$(command aws sts get-caller-identity --output json 2>&1)
       if [ $? -eq 0 ]; then
         echo "$identity"
       else
-        echo "Session expired or invalid. Run: aws login"
+        echo "Status: Session expired or invalid. Run: aws login"
         return 1
       fi
 
