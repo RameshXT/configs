@@ -73,6 +73,66 @@ _aws_pick_session() {
   echo "${sessions[$idx]}"
 }
 
+_aws_get_display_name() {
+  local session="$1" prev_line="" line
+  while IFS= read -r line; do
+    local clean="${line%$'\r'}"
+    if [[ "$clean" =~ ^\[sso-session[[:space:]]+([^]]+)\]$ ]]; then
+      local sname="${BASH_REMATCH[1]%$'\r'}"
+      if [ "$sname" = "$session" ]; then
+        if [[ "$prev_line" =~ ^#[[:space:]]*display_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+          echo "${BASH_REMATCH[1]%$'\r'}"
+        else
+          echo "$session"
+        fi
+        return 0
+      fi
+    fi
+    prev_line="$clean"
+  done < "$HOME/.aws/config"
+  echo "$session"
+}
+
+_aws_pick_profile() {
+  local -a profiles
+  local line
+  while IFS= read -r line; do
+    local clean="${line%$'\r'}"
+    if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
+      profiles+=("${BASH_REMATCH[1]%$'\r'}")
+    fi
+  done < "$HOME/.aws/config"
+
+  [ ${#profiles[@]} -eq 0 ] && { echo "No profiles in ~/.aws/config" >&2; return 1; }
+
+  local idx=0 total=${#profiles[@]} ESC=$'\033' i
+  tput civis 2>/dev/null
+  trap 'tput cnorm 2>/dev/null' RETURN INT TERM
+
+  for i in "${!profiles[@]}"; do
+    [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${profiles[$i]}" >&2 || printf "  %s\n" "${profiles[$i]}" >&2
+  done
+
+  while true; do
+    IFS= read -rsn1 key
+    [[ "$key" == "$ESC" ]] && { IFS= read -rsn2 -t 0.1 seq; key="$ESC$seq"; }
+    case "$key" in
+      "${ESC}[A"|"k") (( idx = (idx - 1 + total) % total )) ;;
+      "${ESC}[B"|"j") (( idx = (idx + 1) % total )) ;;
+      "") break ;;
+      "q"|$'\x03') tput cnorm 2>/dev/null; printf "\n" >&2; return 1 ;;
+    esac
+    printf "\e[%dA" "$total" >&2
+    for i in "${!profiles[@]}"; do
+      [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${profiles[$i]}" >&2 || printf "  %s\n" "${profiles[$i]}" >&2
+    done
+  done
+
+  tput cnorm 2>/dev/null
+  printf "\n" >&2
+  echo "${profiles[$idx]}"
+}
+
 aws() {
   case "$1" in
     login)
@@ -83,6 +143,7 @@ aws() {
       echo "Logging into SSO session: $session"
       if command aws sso login --sso-session "$session"; then
         echo "Login successful for session: $session"
+        echo "$session" > "$HOME/.aws/last-session"
       else
         echo "Login failed. Check session name or network."
         return 1
@@ -111,11 +172,37 @@ aws() {
     switch)
       local target="$2"
 
+      local _last_sess _acct_name=""
+      _last_sess=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
+      if [ -n "$_last_sess" ]; then
+        _acct_name=$(_aws_get_display_name "$_last_sess")
+        echo "[account]: $_acct_name"
+      fi
+
       if [ "$target" = "clear" ]; then
         unset AWS_PROFILE
         unset KUBECONFIG
         rm -f "$HOME/.aws/last-profile"
         echo "AWS_PROFILE and KUBECONFIG cleared. SSO session is still active."
+        return 0
+      fi
+
+      if [ -z "$target" ]; then
+        local selected
+        selected=$(_aws_pick_profile) || return 1
+        export AWS_PROFILE="$selected"
+        echo "Verifying credentials for $selected"
+        local identity
+        identity=$(command aws sts get-caller-identity --output json 2>&1)
+        if [ $? -ne 0 ]; then
+          echo "Session check failed for $selected. Run: aws login"
+          return 1
+        fi
+        local role=$(echo "$identity" | grep -o '"Arn":[^,]*' | sed 's/.*assumed-role\///;s/".*//')
+        echo "Switched to: $selected"
+        echo "Role: $role"
+        mkdir -p "$HOME/.aws"
+        echo "$selected" > "$HOME/.aws/last-profile"
         return 0
       fi
 
@@ -128,11 +215,6 @@ aws() {
           profile="svpl-power"
           cluster="smaitik-engineering"
           region="us-east-2"
-          ;;
-        "")
-          echo "Missing profile name."
-          echo "Usage: aws switch lead or power or read or svpl-power or clear"
-          return 1
           ;;
         *)
           echo "Unknown profile: $target"
