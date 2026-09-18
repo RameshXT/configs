@@ -139,6 +139,7 @@ aws() {
       local session="$2"
       if [ -z "$session" ]; then
         session=$(_aws_pick_session) || return 1
+        session="${session%$'\r'}"
       fi
       echo "Logging into SSO session: $session"
       if command aws sso login --sso-session "$session"; then

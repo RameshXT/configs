@@ -98,11 +98,13 @@ mkdir -p "$BASHRC_DIR"
 cp "$SCRIPT_DIR/../assets/history.sh" "$BASHRC_DIR/history.sh"
 cp "$SCRIPT_DIR/../assets/aliases.sh" "$BASHRC_DIR/aliases.sh"
 cp "$SCRIPT_DIR/../assets/terminal.sh" "$BASHRC_DIR/terminal.sh"
-
 cp "$SCRIPT_DIR/../assets/aws.sh" "$BASHRC_DIR/aws.sh"
-if [ -n "$ORG_NAME" ]; then
-  sed -i "s/<YOUR_ORG_NAME>/$ORG_NAME/g" "$BASHRC_DIR/aws.sh"
-fi
+
+# Normalize CRLF to LF for all scripts (safe on Windows-authored files)
+for _f in "$BASHRC_DIR/history.sh" "$BASHRC_DIR/aliases.sh" "$BASHRC_DIR/terminal.sh" "$BASHRC_DIR/aws.sh"; do
+  sed -i 's/\r$//' "$_f"
+done
+unset _f
 
 ui_ok "Scripts: Copied bash configurations to $BASHRC_DIR"
 
