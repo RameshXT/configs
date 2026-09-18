@@ -438,6 +438,8 @@ aws() {
       if command aws sso login --sso-session "$session"; then
         echo "Login successful for session: $session"
         echo "$session" > "$HOME/.aws/last-session"
+        echo ""
+        aws switch
       else
         echo "Login failed. Check session name or network."
         return 1
