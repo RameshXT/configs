@@ -1,10 +1,93 @@
+_aws_get_sso_sessions() {
+  local config_file="${AWS_CONFIG_FILE:-$HOME/.aws/config}"
+  if [ -f "$config_file" ]; then
+    grep -E '^\[sso-session ' "$config_file" 2>/dev/null | sed -E 's/\[sso-session[[:space:]]+([^]]+)\]/\1/'
+  fi
+}
+
+_aws_select_menu() {
+  local prompt="$1"
+  shift
+  local options=("$@")
+  local cur=0
+  local count=${#options[@]}
+  local key=""
+
+  if [ "$count" -eq 0 ]; then
+    return 1
+  fi
+  if [ "$count" -eq 1 ]; then
+    REPLY="${options[0]}"
+    return 0
+  fi
+
+  # Hide cursor
+  printf "\033[?25l" >&2
+  trap 'printf "\033[?25h" >&2; return 1' INT TERM
+
+  echo "$prompt (↑/↓ to navigate, Enter to select, q to cancel):" >&2
+
+  while true; do
+    local i=0
+    for opt in "${options[@]}"; do
+      if [ "$i" -eq "$cur" ]; then
+        printf "\033[1;32m> [%s]\033[0m\n" "$opt" >&2
+      else
+        printf "    %s  \n" "$opt" >&2
+      fi
+      i=$((i + 1))
+    done
+
+    IFS= read -rsn1 key
+    if [ "$key" = $'\x1b' ]; then
+      read -rsn2 -t 0.1 rest
+      key+="$rest"
+    fi
+
+    case "$key" in
+      $'\x1b[A'|[kK]) # Up
+        cur=$(( (cur - 1 + count) % count ))
+        ;;
+      $'\x1b[B'|[jJ]) # Down
+        cur=$(( (cur + 1) % count ))
+        ;;
+      ""|$'\n'|$'\r') # Enter
+        printf "\033[?25h" >&2
+        trap - INT TERM
+        REPLY="${options[$cur]}"
+        return 0
+        ;;
+      q|Q|$'\x03') # Cancel
+        printf "\033[?25h" >&2
+        trap - INT TERM
+        echo "Cancelled." >&2
+        return 1
+        ;;
+    esac
+
+    # Move cursor back up to redraw menu
+    printf "\033[%dA" "$count" >&2
+  done
+}
+
 aws() {
   case "$1" in
     login)
       local session="$2"
       if [ -z "$session" ]; then
-        echo "Session name required. Use: aws login smaitic or aws login smaitik"
-        return 1
+        local sessions=($(_aws_get_sso_sessions))
+        if [ ${#sessions[@]} -eq 0 ]; then
+          echo "No [sso-session] found in ~/.aws/config."
+          return 1
+        elif [ ${#sessions[@]} -eq 1 ]; then
+          session="${sessions[0]}"
+        else
+          if _aws_select_menu "Select SSO Session" "${sessions[@]}"; then
+            session="$REPLY"
+          else
+            return 1
+          fi
+        fi
       fi
       echo "Logging into SSO session: $session"
       if command aws sso login --sso-session "$session"; then
