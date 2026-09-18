@@ -10,7 +10,7 @@ _aws_pick_session() {
       else
         case "$name" in
           smaitic) label="Smaitic Labs" ;;
-          smaitik) label="Smaitik Venture" ;;
+          smaitik) label="Smaitic Venture" ;;
           *) label="$name" ;;
         esac
       fi
@@ -103,7 +103,7 @@ _aws_get_display_name() {
 
   case "$session" in
     smaitic) echo "Smaitic Labs" ;;
-    smaitik) echo "Smaitik Venture" ;;
+    smaitik) echo "Smaitic Venture" ;;
     *) echo "$session" ;;
   esac
 }
