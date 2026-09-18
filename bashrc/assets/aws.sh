@@ -8,7 +8,11 @@ _aws_pick_session() {
       if [[ "$prev_line" =~ ^#[[:space:]]*display_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
         label="${BASH_REMATCH[1]%$'\r'}"
       else
-        label="$name"
+        case "$name" in
+          smaitic) label="Smaitic Labs" ;;
+          smaitik) label="Smaitik Venture" ;;
+          *) label="$name" ;;
+        esac
       fi
       sessions+=("$name")
       labels+=("$label")
@@ -82,60 +86,71 @@ _aws_get_display_name() {
       if [ "$sname" = "$session" ]; then
         if [[ "$prev_line" =~ ^#[[:space:]]*display_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
           echo "${BASH_REMATCH[1]%$'\r'}"
-        else
-          echo "$session"
+          return 0
         fi
-        return 0
+        break
       fi
     fi
     prev_line="$clean"
   done < "$HOME/.aws/config"
-  echo "$session"
+
+  case "$session" in
+    smaitic) echo "Smaitic Labs" ;;
+    smaitik) echo "Smaitik Venture" ;;
+    *) echo "$session" ;;
+  esac
 }
 
 _aws_pick_profile() {
   local target_session="$1"
-  local -a profiles
-  local cur_profile="" cur_session="" line
+  local -a profiles labels
+  local cur_profile="" cur_session="" cur_role="" line
+
+  _record_profile() {
+    if [ -n "$cur_profile" ]; then
+      if [ -z "$target_session" ] || [ "$cur_session" = "$target_session" ]; then
+        profiles+=("$cur_profile")
+        labels+=("${cur_role:-$cur_profile}")
+      fi
+    fi
+  }
+
   while IFS= read -r line; do
     local clean="${line%$'\r'}"
     if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
-      if [ -n "$cur_profile" ]; then
-        if [ -z "$target_session" ] || [ "$cur_session" = "$target_session" ]; then
-          profiles+=("$cur_profile")
-        fi
-      fi
+      _record_profile
       cur_profile="${BASH_REMATCH[1]%$'\r'}"
       cur_session=""
+      cur_role=""
     elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
       cur_session="${BASH_REMATCH[1]%$'\r'}"
       cur_session="${cur_session#"${cur_session%%[![:space:]]*}"}"
       cur_session="${cur_session%"${cur_session##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^sso_role_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_role="${BASH_REMATCH[1]%$'\r'}"
+      cur_role="${cur_role#"${cur_role%%[![:space:]]*}"}"
+      cur_role="${cur_role%"${cur_role##*[![:space:]]}"}"
     elif [[ "$clean" =~ ^\[.*\]$ ]]; then
-      if [ -n "$cur_profile" ]; then
-        if [ -z "$target_session" ] || [ "$cur_session" = "$target_session" ]; then
-          profiles+=("$cur_profile")
-        fi
-        cur_profile=""
-        cur_session=""
-      fi
+      _record_profile
+      cur_profile=""
+      cur_session=""
+      cur_role=""
     fi
   done < "$HOME/.aws/config"
+  _record_profile
+  unset -f _record_profile
 
-  if [ -n "$cur_profile" ]; then
-    if [ -z "$target_session" ] || [ "$cur_session" = "$target_session" ]; then
-      profiles+=("$cur_profile")
-    fi
-  fi
+  [ ${#labels[@]} -eq 0 ] && { echo "No profiles matching active session in ~/.aws/config" >&2; return 1; }
 
-  [ ${#profiles[@]} -eq 0 ] && { echo "No profiles in ~/.aws/config" >&2; return 1; }
+  labels+=("[Abort]")
+  profiles+=("__ABORT__")
 
-  local idx=0 total=${#profiles[@]} ESC=$'\033' i
+  local idx=0 total=${#labels[@]} ESC=$'\033' i
   tput civis >/dev/tty 2>/dev/null
   trap 'tput cnorm >/dev/tty 2>/dev/null' RETURN INT TERM
 
-  for i in "${!profiles[@]}"; do
-    [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${profiles[$i]}" >&2 || printf "  %s\n" "${profiles[$i]}" >&2
+  for i in "${!labels[@]}"; do
+    [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2 || printf "  %s\n" "${labels[$i]}" >&2
   done
 
   while true; do
@@ -148,13 +163,17 @@ _aws_pick_profile() {
       "q"|$'\x03') tput cnorm >/dev/tty 2>/dev/null; printf "\n" >&2; return 1 ;;
     esac
     printf "\e[%dA" "$total" >&2
-    for i in "${!profiles[@]}"; do
-      [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${profiles[$i]}" >&2 || printf "  %s\n" "${profiles[$i]}" >&2
+    for i in "${!labels[@]}"; do
+      [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2 || printf "  %s\n" "${labels[$i]}" >&2
     done
   done
 
   tput cnorm >/dev/tty 2>/dev/null
   printf "\n" >&2
+  if [ "${profiles[$idx]}" = "__ABORT__" ]; then
+    echo "Selection aborted." >&2
+    return 1
+  fi
   echo "${profiles[$idx]}"
 }
 
@@ -202,7 +221,7 @@ aws() {
       _last_sess=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
       if [ -n "$_last_sess" ]; then
         _acct_name=$(_aws_get_display_name "$_last_sess")
-        echo "[account]: $_acct_name"
+        echo "[AWS]: $_acct_name"
       fi
 
       if [ "$target" = "clear" ]; then
@@ -214,6 +233,10 @@ aws() {
       fi
 
       if [ -z "$target" ]; then
+        if [ -n "$_acct_name" ]; then
+          echo "Select role under $_acct_name account:"
+          echo ""
+        fi
         local selected
         selected=$(_aws_pick_profile "$_last_sess") || return 1
         export AWS_PROFILE="$selected"
