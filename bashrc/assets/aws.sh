@@ -25,6 +25,9 @@ _aws_pick_session() {
     return 1
   fi
 
+  labels+=("[Abort]")
+  sessions+=("__ABORT__")
+
   local idx=0 total=${#labels[@]}
   local ESC=$'\033'
 
@@ -74,6 +77,10 @@ _aws_pick_session() {
 
   tput cnorm >/dev/tty 2>/dev/null
   printf "\n" >&2
+  if [ "${sessions[$idx]}" = "__ABORT__" ]; then
+    echo "Login aborted." >&2
+    return 1
+  fi
   echo "${sessions[$idx]}"
 }
 
