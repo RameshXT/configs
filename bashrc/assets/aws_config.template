@@ -10,6 +10,12 @@ sso_start_url = https://identitycenter.amazonaws.com/ssoins-6595235dbe91aeb5
 sso_region = ap-south-1
 sso_registration_scopes = sso:account:access
 
+# display_name = Smaitic Venture Prod
+[sso-session smaitik-prod]
+sso_start_url = https://smaitik.awsapps.com/start
+sso_region = us-east-1
+sso_registration_scopes = sso:account:access
+
 [profile smaitic-lead]
 sso_session = smaitic
 sso_account_id = <YOUR_PROD_AWS_ACCOUNT_ID>
@@ -35,5 +41,12 @@ output = json
 sso_session = smaitik
 sso_account_id = <YOUR_STAGE_AWS_ACCOUNT_ID>
 sso_role_name = PowerUserAccess
+region = us-east-2
+output = json
+
+[profile svpl-read]
+sso_session = smaitik-prod
+sso_account_id = <YOUR_SMAITIK_PROD_ACCOUNT_ID>
+sso_role_name = ReadOnlyAccess
 region = us-east-2
 output = json

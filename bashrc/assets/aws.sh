@@ -11,6 +11,7 @@ _aws_pick_session() {
         case "$name" in
           smaitic) label="Smaitic Labs" ;;
           smaitik) label="Smaitic Venture Stage" ;;
+          smaitik-prod) label="Smaitic Venture Prod" ;;
           *) label="$name" ;;
         esac
       fi
@@ -104,6 +105,7 @@ _aws_get_display_name() {
   case "$session" in
     smaitic) echo "Smaitic Labs" ;;
     smaitik) echo "Smaitic Venture Stage" ;;
+    smaitik-prod) echo "Smaitic Venture Prod" ;;
     *) echo "$session" ;;
   esac
 }
@@ -312,6 +314,8 @@ _aws_fetch_kubeconfig() {
 
   if [ "$session" = "smaitik" ]; then
     cluster="smaitik-engineering"
+  elif [ "$session" = "smaitik-prod" ]; then
+    cluster="smaitik-production"
   else
     cluster="smaitic-production"
   fi
