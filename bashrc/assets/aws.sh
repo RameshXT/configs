@@ -198,17 +198,18 @@ _aws_ensure_account_id() {
 
 _aws_get_profile_info() {
   local target_prof="$1"
-  local cur_profile="" cur_session="" cur_role="" line
+  local cur_profile="" cur_session="" cur_role="" cur_region="" line
   while IFS= read -r line; do
     local clean="${line%$'\r'}"
     if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
       if [ "$cur_profile" = "$target_prof" ]; then
-        echo "$cur_session|$cur_role"
+        echo "$cur_session|$cur_role|$cur_region"
         return 0
       fi
       cur_profile="${BASH_REMATCH[1]%$'\r'}"
       cur_session=""
       cur_role=""
+      cur_region=""
     elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
       cur_session="${BASH_REMATCH[1]%$'\r'}"
       cur_session="${cur_session#"${cur_session%%[![:space:]]*}"}"
@@ -217,18 +218,23 @@ _aws_get_profile_info() {
       cur_role="${BASH_REMATCH[1]%$'\r'}"
       cur_role="${cur_role#"${cur_role%%[![:space:]]*}"}"
       cur_role="${cur_role%"${cur_role##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^region[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_region="${BASH_REMATCH[1]%$'\r'}"
+      cur_region="${cur_region#"${cur_region%%[![:space:]]*}"}"
+      cur_region="${cur_region%"${cur_region##*[![:space:]]}"}"
     elif [[ "$clean" =~ ^\[.*\]$ ]]; then
       if [ "$cur_profile" = "$target_prof" ]; then
-        echo "$cur_session|$cur_role"
+        echo "$cur_session|$cur_role|$cur_region"
         return 0
       fi
       cur_profile=""
       cur_session=""
       cur_role=""
+      cur_region=""
     fi
   done < "$HOME/.aws/config"
   if [ "$cur_profile" = "$target_prof" ]; then
-    echo "$cur_session|$cur_role"
+    echo "$cur_session|$cur_role|$cur_region"
     return 0
   fi
 }
@@ -308,26 +314,91 @@ _aws_resolve_profile() {
   fi
 }
 
+_aws_pick_cluster() {
+  local -a clusters=("$@")
+  local -a labels=()
+  local i
+  for i in "${clusters[@]}"; do
+    labels+=("$i")
+  done
+  labels+=("[Abort]")
+  clusters+=("__ABORT__")
+
+  local idx=0 total=${#labels[@]} ESC=$'\033'
+
+  tput civis >/dev/tty 2>/dev/null
+  trap 'tput cnorm >/dev/tty 2>/dev/null' RETURN INT TERM
+
+  for i in "${!labels[@]}"; do
+    [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2 || printf "  %s\n" "${labels[$i]}" >&2
+  done
+
+  while true; do
+    IFS= read -rsn1 key
+    [[ "$key" == "$ESC" ]] && { IFS= read -rsn2 -t 0.1 seq; key="$ESC$seq"; }
+    case "$key" in
+      "${ESC}[A"|"k") (( idx = (idx - 1 + total) % total )) ;;
+      "${ESC}[B"|"j") (( idx = (idx + 1) % total )) ;;
+      "") break ;;
+      "q"|$'\x03') tput cnorm >/dev/tty 2>/dev/null; printf "\n" >&2; return 1 ;;
+    esac
+    printf "\e[%dA" "$total" >&2
+    for i in "${!labels[@]}"; do
+      [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2 || printf "  %s\n" "${labels[$i]}" >&2
+    done
+  done
+
+  tput cnorm >/dev/tty 2>/dev/null
+  printf "\n" >&2
+  [ "${clusters[$idx]}" = "__ABORT__" ] && return 1
+  echo "${clusters[$idx]}"
+}
+
 _aws_fetch_kubeconfig() {
   local profile="$1" session="$2" region="$3" role_name="$4"
-  local cluster=""
+  local disp_name
+  disp_name=$(_aws_get_display_name "$session")
 
-  if [ "$session" = "smaitik" ]; then
-    cluster="smaitik-engineering"
-  elif [ "$session" = "smaitik-prod" ]; then
-    cluster="smaitik-production"
-  else
-    cluster="smaitic-production"
+  if [ -z "$region" ]; then
+    case "$session" in
+      smaitik|smaitik-prod) region="us-east-2" ;;
+      *) region="ap-south-1" ;;
+    esac
   fi
 
-  [ -z "$region" ] && region="ap-south-1"
+  local cluster_json cluster_list=()
+  cluster_json=$(command aws eks list-clusters --profile "$profile" --region "$region" --output json 2>/dev/null)
+  if [ -n "$cluster_json" ]; then
+    while IFS= read -r c; do
+      [ -n "$c" ] && cluster_list+=("$c")
+    done < <(echo "$cluster_json" | grep -o '"[^"]*"' | tr -d '"' | grep -v '^clusters$' 2>/dev/null)
+  fi
+
+  local target_cluster=""
+  if [ ${#cluster_list[@]} -eq 0 ]; then
+    case "$session" in
+      smaitik) target_cluster="smaitik-engineering" ;;
+      smaitik-prod) target_cluster="smaitik-production" ;;
+      *) target_cluster="smaitic-production" ;;
+    esac
+  elif [ ${#cluster_list[@]} -eq 1 ]; then
+    target_cluster="${cluster_list[0]}"
+  else
+    echo "Select EKS cluster under $disp_name account:"
+    echo ""
+    target_cluster=$(_aws_pick_cluster "${cluster_list[@]}")
+    if [ -z "$target_cluster" ]; then
+      echo "Cluster selection skipped. AWS_PROFILE remains active."
+      return 0
+    fi
+  fi
 
   local kubeconfig_path="$HOME/.kube/config-$session-$profile"
-  echo "Fetching kubeconfig for $role_name ($cluster in $region)..."
+  echo "Fetching kubeconfig for $role_name ($target_cluster in $region)..."
   mkdir -p "$HOME/.kube"
 
   if command aws eks update-kubeconfig \
-      --name "$cluster" \
+      --name "$target_cluster" \
       --region "$region" \
       --profile "$profile" \
       --kubeconfig "$kubeconfig_path" \
@@ -345,7 +416,7 @@ _aws_fetch_kubeconfig() {
       echo "kubectl context: $kctx"
     fi
   else
-    echo "Notice: Could not fetch kubeconfig for cluster '$cluster' (region: $region)."
+    echo "Notice: Could not fetch kubeconfig for cluster '$target_cluster' (region: $region)."
   fi
 }
 
@@ -589,9 +660,10 @@ aws() {
         selected=$(_aws_pick_profile "$_last_sess") || return 1
         export AWS_PROFILE="$selected"
 
-        local prof_info role_display
+        local prof_info role_display reg
         prof_info=$(_aws_get_profile_info "$selected")
-        role_display="${prof_info##*|}"
+        role_display=$(echo "$prof_info" | cut -d'|' -f2)
+        reg=$(echo "$prof_info" | cut -d'|' -f3)
         [ -z "$role_display" ] && role_display="$selected"
 
         echo "Verifying credentials for $role_display"
@@ -607,7 +679,7 @@ aws() {
         mkdir -p "$HOME/.aws"
         echo "$selected" > "$HOME/.aws/last-profile"
 
-        _aws_fetch_kubeconfig "$selected" "$_last_sess" "" "$role_display"
+        _aws_fetch_kubeconfig "$selected" "$_last_sess" "$reg" "$role_display"
         return 0
       fi
 
