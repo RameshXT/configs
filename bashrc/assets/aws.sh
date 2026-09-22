@@ -304,6 +304,38 @@ _aws_resolve_profile() {
   _check_prof
   unset -f _check_prof
 
+  if [ -z "$matched_prof" ] && [ -n "$target_sess" ]; then
+    local -a dyn_roles=()
+    while IFS= read -r r; do
+      [ -n "$r" ] && dyn_roles+=("$r")
+    done < <(_aws_fetch_dynamic_roles "$target_sess" 2>/dev/null)
+
+    local t_lower r_match=""
+    t_lower=$(echo "$target" | tr '[:upper:]' '[:lower:]')
+    for r in "${dyn_roles[@]}"; do
+      avail_roles+=("$r")
+      local r_lower=$(echo "$r" | tr '[:upper:]' '[:lower:]')
+      if [ "$t_lower" = "$r_lower" ] || \
+         [ "$t_lower" = "power" -a "$r_lower" = "poweruseraccess" ] || \
+         [ "$t_lower" = "read" -a "$r_lower" = "readonlyaccess" ] || \
+         [ "$t_lower" = "lead" -a "$r_lower" = "leaduseraccess" ]; then
+        r_match="$r"
+        break
+      fi
+    done
+
+    if [ -n "$r_match" ]; then
+      local def_region
+      case "$target_sess" in
+        smaitik|smaitik-prod) def_region="us-east-2" ;;
+        *) def_region="ap-south-1" ;;
+      esac
+      matched_prof=$(_aws_ensure_profile_for_role "$target_sess" "$r_match" "$def_region")
+      matched_role="$r_match"
+      matched_reg="$def_region"
+    fi
+  fi
+
   if [ -n "$matched_prof" ]; then
     echo "MATCH|$matched_prof|$matched_role|$matched_reg"
   elif [ -n "$cross_session" ]; then
@@ -527,7 +559,12 @@ _aws_ensure_profile_for_role() {
   local config_file="$HOME/.aws/config"
   local acct_id
   acct_id=$(_aws_get_session_account_id "$session")
-  [ -z "$region" ] && region="us-east-2"
+  if [ -z "$region" ]; then
+    case "$session" in
+      smaitik|smaitik-prod) region="us-east-2" ;;
+      *) region="ap-south-1" ;;
+    esac
+  fi
 
   local prof_name="${session}-${role_name}"
 
@@ -554,12 +591,12 @@ _aws_pick_profile() {
   local -a profiles labels
   local cur_profile="" cur_session="" cur_role="" line
 
-  # Dynamic role fetching for smaitik session
-  if [ "$target_session" = "smaitik" ]; then
+  # Dynamic role fetching for any active/target session
+  if [ -n "$target_session" ]; then
     local -a dyn_roles=()
     while IFS= read -r r; do
       [ -n "$r" ] && dyn_roles+=("$r")
-    done < <(_aws_fetch_dynamic_roles "smaitik" 2>/dev/null)
+    done < <(_aws_fetch_dynamic_roles "$target_session" 2>/dev/null)
 
     if [ ${#dyn_roles[@]} -gt 0 ]; then
       for r in "${dyn_roles[@]}"; do
@@ -600,7 +637,12 @@ _aws_pick_profile() {
       fi
 
       local sel_role="${profiles[$idx]}"
-      _aws_ensure_profile_for_role "smaitik" "$sel_role" "us-east-2"
+      local def_region
+      case "$target_session" in
+        smaitik|smaitik-prod) def_region="us-east-2" ;;
+        *) def_region="ap-south-1" ;;
+      esac
+      _aws_ensure_profile_for_role "$target_session" "$sel_role" "$def_region"
       return 0
     fi
   fi
