@@ -105,6 +105,7 @@
             "colorScheme": "CGA",
             "cursorColor": "#1645C5",
             "cursorShape": "filledBox",
+            "historySize": 32767,
             "opacity": 10,
             "selectionBackground": "#87CEFA",
             "useAcrylic": true
