@@ -464,9 +464,9 @@ _aws_fetch_kubeconfig() {
     export KUBECONFIG="$kubeconfig_path"
     chmod 600 "$kubeconfig_path"
     mkdir -p "$HOME/.aws"
+    echo "$kubeconfig_path" > "$HOME/.aws/last-kubeconfig"
     if [ "$save_global" = "1" ]; then
       echo "$kubeconfig_path" > "$HOME/.aws/default-kubeconfig"
-      echo "$kubeconfig_path" > "$HOME/.aws/last-kubeconfig"
     fi
     echo "Kubeconfig ready: $kubeconfig_path"
     local kctx
@@ -774,11 +774,11 @@ _aws_apply_profile() {
   echo "Switched to: $disp_name ($role_name)"
   echo "Role: $role"
 
+  mkdir -p "$HOME/.aws"
+  echo "$prof" > "$HOME/.aws/last-profile"
+  echo "$sess" > "$HOME/.aws/last-session"
   if [ "$save_global" = "1" ]; then
-    mkdir -p "$HOME/.aws"
     echo "$prof" > "$HOME/.aws/default-profile"
-    echo "$prof" > "$HOME/.aws/last-profile"
-    echo "$sess" > "$HOME/.aws/last-session"
   fi
 
   _aws_fetch_kubeconfig "$prof" "$sess" "$reg" "$role_name" "$save_global"
@@ -1188,31 +1188,44 @@ if command -v aws_completer &> /dev/null; then
 fi
 
 if [ -z "$AWS_PROFILE" ]; then
-  if [ -s "$HOME/.aws/default-profile" ]; then
-    _def_prof=$(cat "$HOME/.aws/default-profile" 2>/dev/null | tr -d $'\r')
-    [ -n "$_def_prof" ] && export AWS_PROFILE="$_def_prof"
-    unset _def_prof
-  elif [ -s "$HOME/.aws/last-profile" ]; then
+  if [ -s "$HOME/.aws/last-profile" ]; then
     _last_prof=$(cat "$HOME/.aws/last-profile" 2>/dev/null | tr -d $'\r')
     [ -n "$_last_prof" ] && export AWS_PROFILE="$_last_prof"
     unset _last_prof
+  elif [ -s "$HOME/.aws/default-profile" ]; then
+    _def_prof=$(cat "$HOME/.aws/default-profile" 2>/dev/null | tr -d $'\r')
+    [ -n "$_def_prof" ] && export AWS_PROFILE="$_def_prof"
+    unset _def_prof
   fi
 fi
 
 if [ -z "$KUBECONFIG" ]; then
-  if [ -s "$HOME/.aws/default-kubeconfig" ]; then
-    _def_kcfg=$(cat "$HOME/.aws/default-kubeconfig" 2>/dev/null | tr -d $'\r')
-    [ -f "$_def_kcfg" ] && export KUBECONFIG="$_def_kcfg"
-    unset _def_kcfg
-  elif [ -s "$HOME/.aws/last-kubeconfig" ]; then
+  if [ -s "$HOME/.aws/last-kubeconfig" ]; then
     _last_kcfg=$(cat "$HOME/.aws/last-kubeconfig" 2>/dev/null | tr -d $'\r')
     [ -f "$_last_kcfg" ] && export KUBECONFIG="$_last_kcfg"
     unset _last_kcfg
+  elif [ -s "$HOME/.aws/default-kubeconfig" ]; then
+    _def_kcfg=$(cat "$HOME/.aws/default-kubeconfig" 2>/dev/null | tr -d $'\r')
+    [ -f "$_def_kcfg" ] && export KUBECONFIG="$_def_kcfg"
+    unset _def_kcfg
   fi
+fi
+
+_aws_sync_last_state() {
+  if [ -n "$AWS_PROFILE" ]; then
+    echo "$AWS_PROFILE" > "$HOME/.aws/last-profile" 2>/dev/null
+    if [ -n "$KUBECONFIG" ]; then
+      echo "$KUBECONFIG" > "$HOME/.aws/last-kubeconfig" 2>/dev/null
+    fi
+  fi
+}
+if [[ ! "$PROMPT_COMMAND" =~ _aws_sync_last_state ]]; then
+  PROMPT_COMMAND="_aws_sync_last_state${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 fi
 
 aws-stage() { aws use stage "$@"; }
 aws-eng() { aws use eng "$@"; }
 aws-prod() { aws use prod "$@"; }
 aws-labs() { aws use labs "$@"; }
+
 
