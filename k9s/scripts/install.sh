@@ -40,8 +40,9 @@ spin() {
   printf "\r${GREEN}[OK]${NC}: %s              \n" "$msg" >&3
 }
 
-if [ -z "${INSTALL_BANNER_PRINTED:-}" ]; then
-  export INSTALL_BANNER_PRINTED=1
+unset INSTALL_BANNER_PRINTED 2>/dev/null || true
+
+if [ "${1:-}" != "--child" ]; then
   cat <<'EOF' >&3
   _  __   ___        
  | |/ /  / _ \   ___ 
@@ -64,7 +65,7 @@ if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
     exit 1
   fi
   tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
-  bash "$TMP_BOOT/scripts/install.sh"
+  bash "$TMP_BOOT/scripts/install.sh" --child
   ret=$?
   rm -rf "$TMP_BOOT"
   exit $ret
