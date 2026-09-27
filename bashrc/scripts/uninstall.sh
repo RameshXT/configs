@@ -59,6 +59,7 @@ fi
 rm -f "$HOME/.aws/last-session" "$HOME/.aws/last-profile" "$HOME/.aws/last-kubeconfig" "$HOME/.aws/config"
 rmdir "$HOME/.aws" 2>/dev/null
 rm -f "$HOME/.kube"/config-smaitic-* "$HOME/.kube"/config-smaitik-*
+rm -f "$HOME/.config/starship.toml"
 ui_ok "Removed ~/.aws configuration, session, and kubeconfig state"
 
 if dpkg -s kubecolor 2>/dev/null | grep -q "Status: install ok installed"; then
