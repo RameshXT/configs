@@ -40,6 +40,18 @@ spin() {
   printf "\r${GREEN}[OK]${NC}: %s              \n" "$msg" >&3
 }
 
+if [ -z "${INSTALL_BANNER_PRINTED:-}" ]; then
+  export INSTALL_BANNER_PRINTED=1
+  cat <<'EOF' >&3
+  _  __   ___        
+ | |/ /  / _ \   ___ 
+ | ' /  | (_) | / __|
+ | . \   \__, | \__ \
+ |_|\_\    /_/  |___/
+
+EOF
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
