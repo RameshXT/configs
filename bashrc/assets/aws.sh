@@ -747,6 +747,118 @@ _aws_pick_profile() {
   echo "${profiles[$idx]}"
 }
 
+_aws_get_active_sessions() {
+  local -a config_sessions=()
+  local line clean
+  while IFS= read -r line; do
+    clean="${line%$'\r'}"
+    if [[ "$clean" =~ ^\[sso-session[[:space:]]+([^]]+)\]$ ]]; then
+      config_sessions+=("${BASH_REMATCH[1]%$'\r'}")
+    fi
+  done < "$HOME/.aws/config"
+
+  local now
+  now=$(date -u +%s 2>/dev/null)
+
+  local s s_hash cache_file t_exp exp_sec is_active
+  for s in "${config_sessions[@]}"; do
+    s_hash=$(printf "%s" "$s" | sha1sum 2>/dev/null | cut -d' ' -f1)
+    cache_file="$HOME/.aws/sso/cache/${s_hash}.json"
+    is_active=0
+
+    if [ -f "$cache_file" ]; then
+      t_exp=$(grep -o '"expiresAt":[ ]*"[^"]*"' "$cache_file" 2>/dev/null | head -n1 | cut -d'"' -f4)
+      if [ -n "$t_exp" ]; then
+        exp_sec=$(date -u -d "$t_exp" +%s 2>/dev/null)
+        if [ -n "$exp_sec" ] && [ "$exp_sec" -gt "$now" ]; then
+          is_active=1
+        fi
+      fi
+    fi
+
+    if [ $is_active -eq 1 ]; then
+      echo "$s"
+    fi
+  done
+}
+
+_aws_pick_logout_session() {
+  local -a sessions=()
+  local -a labels=()
+  local s
+
+  while IFS= read -r s; do
+    [ -n "$s" ] && sessions+=("$s")
+  done < <(_aws_get_active_sessions)
+
+  if [ ${#sessions[@]} -eq 0 ]; then
+    echo "Not logged into any SSO session." >&2
+    return 1
+  fi
+
+  for s in "${sessions[@]}"; do
+    labels+=("$(_aws_get_display_name "$s")")
+  done
+
+  labels+=("[Abort]")
+  sessions+=("__ABORT__")
+
+  local idx=0 total=${#labels[@]}
+  local ESC=$'\033'
+
+  tput civis >/dev/tty 2>/dev/null
+  trap 'tput cnorm >/dev/tty 2>/dev/null' RETURN INT TERM
+
+  local i
+  for i in "${!labels[@]}"; do
+    if [ "$i" -eq "$idx" ]; then
+      printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2
+    else
+      printf "  %s\n" "${labels[$i]}" >&2
+    fi
+  done
+
+  while true; do
+    IFS= read -rsn1 key
+    if [[ "$key" == "$ESC" ]]; then
+      IFS= read -rsn2 -t 0.1 seq
+      key="$ESC$seq"
+    fi
+    case "$key" in
+      "${ESC}[A"|"k")
+        (( idx = (idx - 1 + total) % total ))
+        ;;
+      "${ESC}[B"|"j")
+        (( idx = (idx + 1) % total ))
+        ;;
+      "")
+        break
+        ;;
+      "q"|$'\x03')
+        tput cnorm >/dev/tty 2>/dev/null
+        printf "\n" >&2
+        return 1
+        ;;
+    esac
+    printf "\e[%dA" "$total" >&2
+    for i in "${!labels[@]}"; do
+      if [ "$i" -eq "$idx" ]; then
+        printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2
+      else
+        printf "  %s\n" "${labels[$i]}" >&2
+      fi
+    done
+  done
+
+  tput cnorm >/dev/tty 2>/dev/null
+  printf "\n" >&2
+  if [ "${sessions[$idx]}" = "__ABORT__" ]; then
+    echo "Logout aborted." >&2
+    return 1
+  fi
+  echo "${sessions[$idx]}"
+}
+
 _aws_apply_profile() {
   local prof="$1" sess="$2" reg="$3" role_name="$4" save_global="$5"
   local disp_name
@@ -811,28 +923,90 @@ aws() {
       ;;
 
     logout)
-      local session="$2"
-      if [ -z "$session" ]; then
-        session=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
+      shift
+      local target="$*"
+      local session=""
+
+      if [ -n "$target" ]; then
+        local resolved_s
+        resolved_s=$(_aws_resolve_session "$target")
+        [ -n "$resolved_s" ] && session="$resolved_s" || session="$target"
+      else
+        session=$(_aws_pick_logout_session) || return 0
+        session="${session%$'\r'}"
       fi
-      if [ -z "$session" ]; then
-        echo "Not logged into any SSO session."
+
+      if [ "$session" = "__ABORT__" ] || [ -z "$session" ]; then
+        echo "Logout aborted."
         return 0
       fi
+
       local _disp
       _disp=$(_aws_get_display_name "$session")
       echo "Logging out of SSO session: $_disp"
-      if command aws sso logout; then
-        unset AWS_PROFILE
-        unset KUBECONFIG
-        rm -f "$HOME/.aws/last-profile"
-        rm -f "$HOME/.aws/last-kubeconfig"
-        rm -f "$HOME/.aws/last-session"
-        echo "Logout successful for: $_disp"
-      else
-        echo "Logout failed."
-        return 1
+
+      local s_hash
+      s_hash=$(printf "%s" "$session" | sha1sum 2>/dev/null | cut -d' ' -f1)
+      [ -n "$s_hash" ] && rm -f "$HOME/.aws/sso/cache/${s_hash}.json"
+
+      local s_info s_url
+      s_info=$(_aws_get_session_details "$session")
+      s_url=$(echo "$s_info" | cut -d'|' -f1)
+
+      local f t_url
+      if [ -n "$s_url" ]; then
+        for f in "$HOME/.aws/sso/cache"/*.json; do
+          [ ! -f "$f" ] && continue
+          if grep -q '"accessToken"' "$f" 2>/dev/null; then
+            t_url=$(grep -o '"startUrl":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
+            if [ "$t_url" = "$s_url" ]; then
+              if grep -q "\"clientName\":[ ]*\"botocore-client-${session}\"" "$f" 2>/dev/null || ! grep -q '"clientName"' "$f" 2>/dev/null; then
+                rm -f "$f"
+              fi
+            fi
+          fi
+        done
       fi
+
+      local prof="" cur_p="" cur_s="" l
+      while IFS= read -r l; do
+        local clean="${l%$'\r'}"
+        if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
+          cur_p="${BASH_REMATCH[1]%$'\r'}"
+          cur_s=""
+        elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+          cur_s="${BASH_REMATCH[1]%$'\r'}"
+          cur_s="${cur_s#"${cur_s%%[![:space:]]*}"}"
+          cur_s="${cur_s%"${cur_s##*[![:space:]]}"}"
+          if [ "$cur_s" = "$session" ] && [ -n "$cur_p" ]; then
+            prof="$cur_p"
+            break
+          fi
+        fi
+      done < "$HOME/.aws/config"
+
+      if [ -n "$prof" ]; then
+        command aws sso logout --profile "$prof" 2>/dev/null || true
+      fi
+
+      if [ -n "$AWS_PROFILE" ]; then
+        local cur_tab_sess
+        cur_tab_sess=$(_aws_get_profile_info "$AWS_PROFILE" | cut -d'|' -f1)
+        if [ "$cur_tab_sess" = "$session" ]; then
+          unset AWS_PROFILE
+          unset KUBECONFIG
+          rm -f "$HOME/.aws/last-profile" "$HOME/.aws/last-kubeconfig"
+        fi
+      fi
+
+      local last_s
+      last_s=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
+      if [ "$last_s" = "$session" ]; then
+        rm -f "$HOME/.aws/last-session"
+      fi
+
+      echo "Logout successful for: $_disp"
+      return 0
       ;;
 
     set-account|account)
