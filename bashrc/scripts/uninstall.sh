@@ -26,9 +26,15 @@ exec 3>&1
 exec 1>"$LOG_FILE" 2>&1
 set -x
 
-echo -e "" >&3
-ui_info "Starting bashrc bundle uninstallation. Logs: $LOG_FILE"
-echo -e "" >&3
+cat <<'EOF' >&3
+ ____            _              
+| __ )  __ _ ___| |__  _ __ ___ 
+|  _ \ / _` / __| '_ \| '__/ __|
+| |_) | (_| \__ \ | | | | | (__ 
+|____/ \__,_|___/_| |_|_|  \___|  by RameshXT
+
+EOF
+echo -e "${BLUE}[bashrc]${NC}: Uninstalling...\n" >&3
 
 echo -e -n "${YELLOW}Are you sure you want to uninstall your bashrc customizations? (y/n): ${NC}" >&3
 read -r response </dev/tty

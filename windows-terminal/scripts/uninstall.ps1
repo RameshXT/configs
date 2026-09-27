@@ -31,8 +31,16 @@ if (-not $isInstalled) {
     return
 }
 
-Write-Host ""
-Write-UI "Starting Windows Terminal customization uninstallation..." "INFO"
+Write-Host @"
+   ____   __  __   ____  
+  / ___| |  \/  | |  _ \ 
+ | |     | |\/| | | | | |
+ | |___  | |  | | | |_| |
+  \____| |_|  |_| |____/   by RameshXT
+
+"@
+
+Write-Host "[CMD]: Uninstalling..." -ForegroundColor Cyan
 Write-Host ""
 
 $response = Read-Host "Are you sure you want to uninstall Windows Terminal customizations? (y/n)"

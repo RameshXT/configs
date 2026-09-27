@@ -50,6 +50,18 @@ spin() {
   printf "\r${GREEN}[OK]${NC}: %s              \n" "$msg" >&3
 }
 
+if [ "${1:-}" != "--child" ]; then
+  cat <<'EOF' >&3
+  _  __  ___        
+ | |/ / / _ \  ___ 
+ | ' / | (_) |/ __|
+ | . \  \__, |\__ \
+ |_|\_\   /_/ |___/  by RameshXT
+
+EOF
+  echo -e "${BLUE}[k9s]${NC}: Uninstalling...\n" >&3
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
@@ -62,7 +74,7 @@ if [ ! -f "$SCRIPT_DIR/../assets/transparent.yaml" ]; then
     exit 1
   fi
   tar -xzf "$TMP_BOOT/k9s.tar.gz" -C "$TMP_BOOT"
-  bash "$TMP_BOOT/scripts/uninstall.sh"
+  bash "$TMP_BOOT/scripts/uninstall.sh" --child
   ret=$?
   rm -rf "$TMP_BOOT"
   exit $ret
