@@ -108,11 +108,8 @@ cp "$SCRIPT_DIR/../assets/aliases.sh" "$BASHRC_DIR/aliases.sh"
 cp "$SCRIPT_DIR/../assets/terminal.sh" "$BASHRC_DIR/terminal.sh"
 cp "$SCRIPT_DIR/../assets/aws.sh" "$BASHRC_DIR/aws.sh"
 cp "$SCRIPT_DIR/../assets/kubecolor.sh" "$BASHRC_DIR/kubecolor.sh"
-cp "$SCRIPT_DIR/../assets/starship.sh" "$BASHRC_DIR/starship.sh"
-mkdir -p "$HOME/.config"
-cp "$SCRIPT_DIR/../assets/starship.toml" "$HOME/.config/starship.toml"
 
-for _f in "$BASHRC_DIR/history.sh" "$BASHRC_DIR/aliases.sh" "$BASHRC_DIR/terminal.sh" "$BASHRC_DIR/aws.sh" "$BASHRC_DIR/kubecolor.sh" "$BASHRC_DIR/starship.sh"; do
+for _f in "$BASHRC_DIR/history.sh" "$BASHRC_DIR/aliases.sh" "$BASHRC_DIR/terminal.sh" "$BASHRC_DIR/aws.sh" "$BASHRC_DIR/kubecolor.sh"; do
   sed -i 's/\r$//' "$_f"
 done
 unset _f
@@ -164,30 +161,6 @@ else
   ui_warn "Kubecolor: Failed to resolve latest release tag"
 fi
 
-if ! command -v starship >/dev/null 2>&1; then
-  TMP_STARSHIP="$(mktemp -d)"
-  curl -fsSL https://starship.rs/install.sh -o "$TMP_STARSHIP/install.sh" 2>/dev/null &
-  spin $! "Downloading Starship installer..."
-
-  if [ -s "$TMP_STARSHIP/install.sh" ]; then
-    SUDO_CMD=""
-    if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
-      SUDO_CMD="sudo"
-    fi
-    $SUDO_CMD sh "$TMP_STARSHIP/install.sh" -y >/dev/null 2>&1 || true
-    if command -v starship >/dev/null 2>&1 || [ -x /usr/local/bin/starship ] || [ -x "$HOME/.local/bin/starship" ]; then
-      ui_ok "Starship: Installed successfully"
-    else
-      ui_warn "Starship: Installation encountered an issue"
-    fi
-  else
-    ui_warn "Starship: Installer download failed, skipping"
-  fi
-  rm -rf "$TMP_STARSHIP"
-else
-  ui_ok "Starship: Already installed"
-fi
-
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   awk -v start="$MARKER_START" -v end="$MARKER_END" '
     $0 == start { in_block=1; next }
@@ -204,7 +177,6 @@ fi
   echo 'source ~/.config/bashrc.d/terminal.sh'
   echo 'source ~/.config/bashrc.d/kubecolor.sh'
   echo 'source ~/.config/bashrc.d/aliases.sh'
-  echo 'source ~/.config/bashrc.d/starship.sh'
   echo "$MARKER_END"
 } >> "$BASHRC"
 ui_ok "Wrapper: Injected strictly ordered source statements to ~/.bashrc"

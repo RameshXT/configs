@@ -42,7 +42,7 @@ jobs:
       - name: Validate required files
         run: |
           set -euo pipefail
-          for file in bashrc/assets/aws.sh bashrc/assets/aliases.sh bashrc/assets/history.sh bashrc/assets/terminal.sh bashrc/assets/kubecolor.sh bashrc/assets/starship.sh bashrc/assets/starship.toml bashrc/assets/aws_config.template bashrc/scripts/install.sh bashrc/scripts/uninstall.sh bashrc/README.md; do
+          for file in bashrc/assets/aws.sh bashrc/assets/aliases.sh bashrc/assets/history.sh bashrc/assets/terminal.sh bashrc/assets/kubecolor.sh bashrc/assets/aws_config.template bashrc/scripts/install.sh bashrc/scripts/uninstall.sh bashrc/README.md; do
             if [ ! -f "$file" ]; then echo "missing file: $file"; exit 1; fi
           done
       - name: Package bashrc folder
