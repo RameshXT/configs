@@ -132,8 +132,6 @@ if ! command -v k9s >/dev/null 2>&1; then
   fi
 fi
 
-command -v yq  >/dev/null 2>&1 || { echo "[install] error: yq not found in PATH" >&2; ui_error "yq not found in PATH"; exit 1; }
-
 ui_ok "Verified dependencies"
 
 mkdir -p "$K9S_CFG_DIR/skins"
@@ -164,8 +162,24 @@ echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished applying skin + views."
 ui_ok "Apply: Skin and views configured"
 
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] updating config.yaml (skin reference only) ..."
-touch "$K9S_CFG_DIR/config.yaml"
-yq eval '.k9s.ui.skin = "transparent" | .k9s.skin = "transparent" | del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml"
+mkdir -p "$K9S_CFG_DIR"
+if [ ! -s "$K9S_CFG_DIR/config.yaml" ]; then
+  cat <<'EOF' > "$K9S_CFG_DIR/config.yaml"
+k9s:
+  skin: transparent
+EOF
+elif command -v yq >/dev/null 2>&1; then
+  yq eval '.k9s.skin = "transparent"' -i "$K9S_CFG_DIR/config.yaml" 2>/dev/null || true
+elif grep -q "skin:" "$K9S_CFG_DIR/config.yaml"; then
+  sed -i 's/skin:.*/skin: transparent/' "$K9S_CFG_DIR/config.yaml"
+elif grep -q "^k9s:" "$K9S_CFG_DIR/config.yaml"; then
+  sed -i '/^k9s:/a \ \ skin: transparent' "$K9S_CFG_DIR/config.yaml"
+else
+  cat <<'EOF' >> "$K9S_CFG_DIR/config.yaml"
+k9s:
+  skin: transparent
+EOF
+fi
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished updating config.yaml."
 ui_ok "Config: Activated transparent skin"
 

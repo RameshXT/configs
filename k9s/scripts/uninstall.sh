@@ -100,9 +100,6 @@ BASHRC="$HOME/.bashrc"
 MARKER_START="# >>> k9s customization >>>"
 MARKER_END="# <<< k9s customization <<<"
 
-command -v yq >/dev/null 2>&1 || { echo "[uninstall] error: yq not found in PATH" >&2; ui_error "yq not found in PATH"; exit 1; }
-ui_ok "Verified yq is installed"
-
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] removing skin + views files ..."
 rm -f "$K9S_CFG_DIR/skins/transparent.yaml" "$K9S_CFG_DIR/views.yaml" "$K9S_CFG_DIR/wrapper.sh"
 echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing skin + views files."
@@ -110,7 +107,10 @@ ui_ok "Removed custom skin and views"
 
 if [ -f "$K9S_CFG_DIR/config.yaml" ]; then
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] removing skin reference from config.yaml (file itself kept, has cluster data) ..."
-  yq eval 'del(.k9s.ui.skin) | del(.k9s.skin) | del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml"
+  if command -v yq >/dev/null 2>&1; then
+    yq eval 'del(.k9s.ui.skin) | del(.k9s.skin) | del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml" 2>/dev/null || true
+  fi
+  sed -i '/skin: transparent/d' "$K9S_CFG_DIR/config.yaml" 2>/dev/null || true
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing skin reference."
   ui_ok "Removed skin reference from config"
 fi
