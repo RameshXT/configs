@@ -1,5 +1,5 @@
 add_newline = false
-command_timeout = 200
+command_timeout = 50
 
 format = """$username$hostname$directory$git_branch$kubernetes$character"""
 
@@ -29,7 +29,7 @@ format = "[($branch)]($style) "
 disabled = false
 symbol = ""
 style = "bold purple"
-format = '\[[$context]\]($style)  '
+format = '[\[$context\]]($style)  '
 
 [character]
 success_symbol = "[❯](bold white)"
