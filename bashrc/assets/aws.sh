@@ -86,15 +86,15 @@ _aws_pick_session() {
 }
 
 _aws_resolve_session() {
-  local s_lower=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+  local s_lower=$(echo "$*" | tr '[:upper:]' '[:lower:]')
   case "$s_lower" in
-    eng|engineering|stage|smaitik|svpl-eng|svpl-stage)
+    *eng*|*stage*|*smaitik*|*svpl-eng*|*svpl-stage*)
       echo "smaitik"
       ;;
-    prod|production|smaitik-prod|svpl-prod)
+    *prod*|*production*|*smaitik-prod*|*svpl-prod*)
       echo "smaitik-prod"
       ;;
-    labs|smaitic|smaitic-labs)
+    *lab*|*smaitic*)
       echo "smaitic"
       ;;
     *)
@@ -788,14 +788,15 @@ _aws_apply_profile() {
 aws() {
   case "$1" in
     login)
-      local session="$2"
+      shift
+      local session="$*"
+      local resolved_s
+      resolved_s=$(_aws_resolve_session "$session")
+      [ -n "$resolved_s" ] && session="$resolved_s"
       if [ -z "$session" ]; then
         session=$(_aws_pick_session) || return 1
         session="${session%$'\r'}"
       fi
-      local resolved_s
-      resolved_s=$(_aws_resolve_session "$session")
-      [ -n "$resolved_s" ] && session="$resolved_s"
       _aws_ensure_account_id "$session" || return 1
       echo "Logging into SSO session: $session"
       if command aws sso login --sso-session "$session"; then
@@ -978,8 +979,12 @@ aws() {
       fi
 
       local resolved_sess
-      resolved_sess=$(_aws_resolve_session "$target")
+      resolved_sess=$(_aws_resolve_session "$target" "$opt_role")
       if [ -n "$resolved_sess" ]; then
+        if [ "$resolved_sess" != "$target" ]; then
+          # If target was a full phrase like "smaitic venture engineering", clear opt_role
+          opt_role=""
+        fi
         local disp_name
         disp_name=$(_aws_get_display_name "$resolved_sess")
         echo "[AWS]: $disp_name"
@@ -1188,32 +1193,82 @@ if command -v aws_completer &> /dev/null; then
 fi
 
 if [ -z "$AWS_PROFILE" ]; then
-  if [ -s "$HOME/.aws/last-profile" ]; then
-    _last_prof=$(cat "$HOME/.aws/last-profile" 2>/dev/null | tr -d $'\r')
-    [ -n "$_last_prof" ] && export AWS_PROFILE="$_last_prof"
-    unset _last_prof
-  elif [ -s "$HOME/.aws/default-profile" ]; then
-    _def_prof=$(cat "$HOME/.aws/default-profile" 2>/dev/null | tr -d $'\r')
-    [ -n "$_def_prof" ] && export AWS_PROFILE="$_def_prof"
-    unset _def_prof
+  _target_prof=""
+  _last_sess=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
+  _last_prof=$(cat "$HOME/.aws/last-profile" 2>/dev/null | tr -d $'\r')
+
+  if [ -n "$_last_prof" ]; then
+    p_info=$(_aws_get_profile_info "$_last_prof")
+    prof_sess=$(echo "$p_info" | cut -d'|' -f1)
+    if [ -z "$_last_sess" ] || [ "$prof_sess" = "$_last_sess" ]; then
+      _target_prof="$_last_prof"
+    fi
   fi
+
+  if [ -z "$_target_prof" ] && [ -n "$_last_sess" ]; then
+    cur_p=""
+    cur_s=""
+    while IFS= read -r l; do
+      clean="${l%$'\r'}"
+      if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
+        cur_p="${BASH_REMATCH[1]%$'\r'}"
+        cur_s=""
+      elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+        cur_s="${BASH_REMATCH[1]%$'\r'}"
+        cur_s="${cur_s#"${cur_s%%[![:space:]]*}"}"
+        cur_s="${cur_s%"${cur_s##*[![:space:]]}"}"
+        if [ "$cur_s" = "$_last_sess" ] && [ -n "$cur_p" ]; then
+          _target_prof="$cur_p"
+          break
+        fi
+      fi
+    done < "$HOME/.aws/config"
+  fi
+
+  [ -z "$_target_prof" ] && _target_prof=$(cat "$HOME/.aws/default-profile" 2>/dev/null | tr -d $'\r')
+
+  if [ -n "$_target_prof" ]; then
+    export AWS_PROFILE="$_target_prof"
+    echo "$_target_prof" > "$HOME/.aws/last-profile" 2>/dev/null
+  fi
+  unset _last_prof _target_prof _last_sess p_info prof_sess cur_p cur_s l clean
 fi
 
 if [ -z "$KUBECONFIG" ]; then
+  _target_kcfg=""
   if [ -s "$HOME/.aws/last-kubeconfig" ]; then
     _last_kcfg=$(cat "$HOME/.aws/last-kubeconfig" 2>/dev/null | tr -d $'\r')
-    [ -f "$_last_kcfg" ] && export KUBECONFIG="$_last_kcfg"
-    unset _last_kcfg
-  elif [ -s "$HOME/.aws/default-kubeconfig" ]; then
-    _def_kcfg=$(cat "$HOME/.aws/default-kubeconfig" 2>/dev/null | tr -d $'\r')
-    [ -f "$_def_kcfg" ] && export KUBECONFIG="$_def_kcfg"
-    unset _def_kcfg
+    if [ -f "$_last_kcfg" ] && [ -n "$AWS_PROFILE" ] && [[ "$_last_kcfg" == *"$AWS_PROFILE"* ]]; then
+      _target_kcfg="$_last_kcfg"
+    fi
   fi
+
+  if [ -z "$_target_kcfg" ] && [ -n "$AWS_PROFILE" ]; then
+    p_info=$(_aws_get_profile_info "$AWS_PROFILE")
+    sess=$(echo "$p_info" | cut -d'|' -f1)
+    candidate="$HOME/.kube/config-$sess-$AWS_PROFILE"
+    if [ -f "$candidate" ]; then
+      _target_kcfg="$candidate"
+    fi
+    unset p_info sess candidate
+  fi
+
+  [ -z "$_target_kcfg" ] && _target_kcfg=$(cat "$HOME/.aws/default-kubeconfig" 2>/dev/null | tr -d $'\r')
+
+  if [ -n "$_target_kcfg" ] && [ -f "$_target_kcfg" ]; then
+    export KUBECONFIG="$_target_kcfg"
+    echo "$_target_kcfg" > "$HOME/.aws/last-kubeconfig" 2>/dev/null
+  fi
+  unset _last_kcfg _target_kcfg
 fi
 
 _aws_sync_last_state() {
   if [ -n "$AWS_PROFILE" ]; then
     echo "$AWS_PROFILE" > "$HOME/.aws/last-profile" 2>/dev/null
+    local p_info sess
+    p_info=$(_aws_get_profile_info "$AWS_PROFILE")
+    sess=$(echo "$p_info" | cut -d'|' -f1)
+    [ -n "$sess" ] && echo "$sess" > "$HOME/.aws/last-session" 2>/dev/null
     if [ -n "$KUBECONFIG" ]; then
       echo "$KUBECONFIG" > "$HOME/.aws/last-kubeconfig" 2>/dev/null
     fi
