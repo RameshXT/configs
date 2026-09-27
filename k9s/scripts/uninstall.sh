@@ -107,10 +107,7 @@ ui_ok "Removed custom skin and views"
 
 if [ -f "$K9S_CFG_DIR/config.yaml" ]; then
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] removing skin reference from config.yaml (file itself kept, has cluster data) ..."
-  if command -v yq >/dev/null 2>&1; then
-    yq eval 'del(.k9s.ui.skin) | del(.k9s.skin) | del(.ui.skin)' -i "$K9S_CFG_DIR/config.yaml" 2>/dev/null || true
-  fi
-  sed -i '/skin: transparent/d' "$K9S_CFG_DIR/config.yaml" 2>/dev/null || true
+  sed -i -E '/^[[:space:]]*skin:[[:space:]]*transparent/d' "$K9S_CFG_DIR/config.yaml" 2>/dev/null || true
   echo "$(date +'%Y-%m-%d %H:%M:%S') [uninstall] finished removing skin reference."
   ui_ok "Removed skin reference from config"
 fi

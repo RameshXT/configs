@@ -168,14 +168,19 @@ if [ ! -s "$K9S_CFG_DIR/config.yaml" ]; then
 k9s:
   skin: transparent
 EOF
-elif command -v yq >/dev/null 2>&1; then
-  yq eval '.k9s.skin = "transparent"' -i "$K9S_CFG_DIR/config.yaml" 2>/dev/null || true
-elif grep -q "skin:" "$K9S_CFG_DIR/config.yaml"; then
-  sed -i 's/skin:.*/skin: transparent/' "$K9S_CFG_DIR/config.yaml"
+elif grep -qE "^[[:space:]]*skin:" "$K9S_CFG_DIR/config.yaml"; then
+  sed -i -E 's/^[[:space:]]*skin:[[:space:]].*/  skin: transparent/' "$K9S_CFG_DIR/config.yaml"
 elif grep -q "^k9s:" "$K9S_CFG_DIR/config.yaml"; then
   sed -i '/^k9s:/a \ \ skin: transparent' "$K9S_CFG_DIR/config.yaml"
 else
   cat <<'EOF' >> "$K9S_CFG_DIR/config.yaml"
+k9s:
+  skin: transparent
+EOF
+fi
+
+if ! grep -q "skin: transparent" "$K9S_CFG_DIR/config.yaml"; then
+  cat <<'EOF' > "$K9S_CFG_DIR/config.yaml"
 k9s:
   skin: transparent
 EOF
