@@ -1,7 +1,7 @@
 add_newline = false
 command_timeout = 50
 
-format = """$username$hostname$directory$git_branch$kubernetes$character"""
+format = """$username$hostname$directory$character"""
 
 [username]
 style_user = "blue bold"
@@ -19,17 +19,6 @@ style = "white bold"
 format = "[$path]($style) "
 truncation_length = 3
 truncate_to_repo = true
-
-[git_branch]
-symbol = ""
-style = "green bold"
-format = "[($branch)]($style) "
-
-[kubernetes]
-disabled = false
-symbol = ""
-style = "bold purple"
-format = '[\[$context\]]($style)  '
 
 [character]
 success_symbol = "[❯](bold white)"
