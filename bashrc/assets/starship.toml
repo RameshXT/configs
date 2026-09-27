@@ -1,5 +1,7 @@
-format = """
-$username$hostname$directory$git_branch$kubernetes$character"""
+add_newline = false
+command_timeout = 200
+
+format = """$username$hostname$directory$git_branch$kubernetes$character"""
 
 [username]
 style_user = "blue bold"
@@ -27,7 +29,7 @@ format = "[($branch)]($style) "
 disabled = false
 symbol = ""
 style = "bold purple"
-format = "[\\[$context\\]]($style)  "
+format = '\[[$context]\]($style)  '
 
 [character]
 success_symbol = "[❯](bold white)"

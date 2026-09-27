@@ -175,7 +175,7 @@ if ! command -v starship >/dev/null 2>&1; then
       SUDO_CMD="sudo"
     fi
     $SUDO_CMD sh "$TMP_STARSHIP/install.sh" -y >/dev/null 2>&1 || true
-    if command -v starship >/dev/null 2>&1; then
+    if command -v starship >/dev/null 2>&1 || [ -x /usr/local/bin/starship ] || [ -x "$HOME/.local/bin/starship" ]; then
       ui_ok "Starship: Installed successfully"
     else
       ui_warn "Starship: Installation encountered an issue"
