@@ -947,47 +947,11 @@ aws() {
 
       local s_hash
       s_hash=$(printf "%s" "$session" | sha1sum 2>/dev/null | cut -d' ' -f1)
-      [ -n "$s_hash" ] && rm -f "$HOME/.aws/sso/cache/${s_hash}.json"
-
-      local s_info s_url
-      s_info=$(_aws_get_session_details "$session")
-      s_url=$(echo "$s_info" | cut -d'|' -f1)
-
-      local f t_url
-      if [ -n "$s_url" ]; then
-        for f in "$HOME/.aws/sso/cache"/*.json; do
-          [ ! -f "$f" ] && continue
-          if grep -q '"accessToken"' "$f" 2>/dev/null; then
-            t_url=$(grep -o '"startUrl":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
-            if [ "$t_url" = "$s_url" ]; then
-              if grep -q "\"clientName\":[ ]*\"botocore-client-${session}\"" "$f" 2>/dev/null || ! grep -q '"clientName"' "$f" 2>/dev/null; then
-                rm -f "$f"
-              fi
-            fi
-          fi
-        done
+      if [ -n "$s_hash" ]; then
+        rm -f "$HOME/.aws/sso/cache/${s_hash}.json"
       fi
 
-      local prof="" cur_p="" cur_s="" l
-      while IFS= read -r l; do
-        local clean="${l%$'\r'}"
-        if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
-          cur_p="${BASH_REMATCH[1]%$'\r'}"
-          cur_s=""
-        elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
-          cur_s="${BASH_REMATCH[1]%$'\r'}"
-          cur_s="${cur_s#"${cur_s%%[![:space:]]*}"}"
-          cur_s="${cur_s%"${cur_s##*[![:space:]]}"}"
-          if [ "$cur_s" = "$session" ] && [ -n "$cur_p" ]; then
-            prof="$cur_p"
-            break
-          fi
-        fi
-      done < "$HOME/.aws/config"
-
-      if [ -n "$prof" ]; then
-        command aws sso logout --profile "$prof" 2>/dev/null || true
-      fi
+      rm -f "$HOME/.kube/config-${session}-"*
 
       if [ -n "$AWS_PROFILE" ]; then
         local cur_tab_sess
@@ -1002,7 +966,13 @@ aws() {
       local last_s
       last_s=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
       if [ "$last_s" = "$session" ]; then
-        rm -f "$HOME/.aws/last-session"
+        local remaining_sess
+        remaining_sess=$(_aws_get_active_sessions | head -n1)
+        if [ -n "$remaining_sess" ]; then
+          echo "$remaining_sess" > "$HOME/.aws/last-session"
+        else
+          rm -f "$HOME/.aws/last-session"
+        fi
       fi
 
       echo "Logout successful for: $_disp"
@@ -1448,8 +1418,22 @@ _aws_sync_last_state() {
     fi
   fi
 }
+
+_aws_setup_terminal_tab_sync() {
+  if [ -t 0 ] && [ -n "$WT_SESSION" -o -n "$WSL_DISTRO_NAME" -o "$TERM_PROGRAM" = "WindowsTerminal" ]; then
+    bind -x '"\e[I": _aws_sync_last_state' 2>/dev/null
+    bind '"\e[O": ""' 2>/dev/null
+    printf '\e[?1004h' 2>/dev/null
+    if [[ ! "$PS0" =~ 1004l ]]; then
+      PS0="\[\e[?1004l\]${PS0:+ $PS0}"
+    fi
+  fi
+}
+
+_aws_setup_terminal_tab_sync
+
 if [[ ! "$PROMPT_COMMAND" =~ _aws_sync_last_state ]]; then
-  PROMPT_COMMAND="_aws_sync_last_state${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+  PROMPT_COMMAND="_aws_sync_last_state; _aws_setup_terminal_tab_sync${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 fi
 
 aws-stage() { aws use stage "$@"; }
