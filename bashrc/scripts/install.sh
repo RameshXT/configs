@@ -39,16 +39,17 @@ spin() {
 }
 
 unset INSTALL_BANNER_PRINTED 2>/dev/null || true
-  
+
 if [ "${1:-}" != "--child" ]; then
   cat <<'EOF' >&3
  ____            _              
 | __ )  __ _ ___| |__  _ __ ___ 
 |  _ \ / _` / __| '_ \| '__/ __|
 | |_) | (_| \__ \ | | | | | (__ 
-|____/ \__,_|___/_| |_|_|  \___|
+|____/ \__,_|___/_| |_|_|  \___|  by RameshXT
 
 EOF
+  echo -e "${BLUE}[bashrc]${NC}: Installing...\n" >&3
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"

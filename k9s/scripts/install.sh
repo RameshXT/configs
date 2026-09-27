@@ -48,9 +48,10 @@ if [ "${1:-}" != "--child" ]; then
  | |/ / / _ \  ___ 
  | ' / | (_) |/ __|
  | . \  \__, |\__ \
- |_|\_\   /_/ |___/
+ |_|\_\   /_/ |___/  by RameshXT
 
 EOF
+  echo -e "${BLUE}[k9s]${NC}: Installing...\n" >&3
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
