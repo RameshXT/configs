@@ -167,6 +167,8 @@ if [ ! -s "$K9S_CFG_DIR/config.yaml" ]; then
   cat <<'EOF' > "$K9S_CFG_DIR/config.yaml"
 k9s:
   skin: transparent
+  ui:
+    skin: transparent
 EOF
 elif grep -qE "^[[:space:]]*skin:" "$K9S_CFG_DIR/config.yaml"; then
   sed -i -E 's/^[[:space:]]*skin:[[:space:]].*/  skin: transparent/' "$K9S_CFG_DIR/config.yaml"
@@ -179,10 +181,20 @@ k9s:
 EOF
 fi
 
+if grep -q "^[[:space:]]*ui:" "$K9S_CFG_DIR/config.yaml"; then
+  if grep -A 10 "^[[:space:]]*ui:" "$K9S_CFG_DIR/config.yaml" | grep -qE "^[[:space:]]+skin:"; then
+    sed -i -E '/^[[:space:]]*ui:/,/^[[:space:]]*[a-zA-Z]/ s/^([[:space:]]+skin:)[[:space:]].*/\1 transparent/' "$K9S_CFG_DIR/config.yaml"
+  else
+    sed -i '/^[[:space:]]*ui:/a \ \ \ \ skin: transparent' "$K9S_CFG_DIR/config.yaml"
+  fi
+fi
+
 if ! grep -q "skin: transparent" "$K9S_CFG_DIR/config.yaml"; then
   cat <<'EOF' > "$K9S_CFG_DIR/config.yaml"
 k9s:
   skin: transparent
+  ui:
+    skin: transparent
 EOF
 fi
 echo "$(date +'%Y-%m-%d %H:%M:%S') [install] finished updating config.yaml."
@@ -201,6 +213,7 @@ cp "$TMP_DIR/wrapper.sh" "$K9S_CFG_DIR/wrapper.sh"
   echo "$MARKER_START"
   # shellcheck disable=SC2016
   echo 'export K9S_CONFIG_DIR="$HOME/.config/k9s"'
+  echo 'export K9S_SKIN="transparent"'
   echo 'source ~/.config/k9s/wrapper.sh'
   echo "$MARKER_END"
 } >> "$BASHRC"
