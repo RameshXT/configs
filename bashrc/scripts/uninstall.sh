@@ -55,6 +55,15 @@ rmdir "$HOME/.aws" 2>/dev/null
 rm -f "$HOME/.kube"/config-smaitic-* "$HOME/.kube"/config-smaitik-*
 ui_ok "Removed ~/.aws configuration, session, and kubeconfig state"
 
+if dpkg -s kubecolor 2>/dev/null | grep -q "Status: install ok installed"; then
+  SUDO_CMD=""
+  if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    SUDO_CMD="sudo"
+  fi
+  $SUDO_CMD dpkg -r kubecolor >/dev/null 2>&1 || true
+  ui_ok "Removed kubecolor package"
+fi
+
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   awk -v start="$MARKER_START" -v end="$MARKER_END" '
     $0 == start { in_block=1; next }
