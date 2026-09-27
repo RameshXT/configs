@@ -38,6 +38,18 @@ spin() {
   printf "\r${GREEN}[OK]${NC}: %s              \n" "$msg" >&3
 }
 
+if [ -z "${INSTALL_BANNER_PRINTED:-}" ]; then
+  export INSTALL_BANNER_PRINTED=1
+  cat <<'EOF' >&3
+ ___           _        _ _   ____            _              
+|_ _|_ __  ___| |_ __ _| | | | __ )  __ _ ___| |__  _ __ ___ 
+ | || '_ \/ __| __/ _` | | | |  _ \ / _` / __| '_ \| '__/ __|
+ | || | | \__ \ || (_| | | | | |_) | (_| \__ \ | | | | | (__ 
+|___|_| |_|___/\__\__,_|_|_| |____/ \__,_|___/_| |_|_|  \___|
+
+EOF
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/../assets/aws_config.template" ]; then
