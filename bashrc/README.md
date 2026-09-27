@@ -1,6 +1,6 @@
 # bashrc Customization Bundle
 
-A modular configuration bundle for `.bashrc` featuring an interactive AWS SSO login workflow, custom aliases, history optimizations, and terminal keybindings.
+A modular configuration bundle for `.bashrc` featuring an interactive AWS SSO login workflow, automated kubecolor setup with syntax-highlighted kubectl aliases, history optimizations, and terminal keybindings.
 
 > **Note**: custom bashrc is always the latest state of the bashrc/ folder on main, auto published by GitHub Actions on every relevant push. This is not a manually versioned release.
 

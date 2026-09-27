@@ -2,7 +2,7 @@
 A centralized collection of configurations and customizations.
 
 ## bashrc (Only for Ubuntu 24.04)
-A modular configuration bundle for `.bashrc` featuring an interactive AWS SSO login workflow, custom aliases, history optimizations, and terminal keybindings.
+A modular configuration bundle for `.bashrc` featuring an interactive AWS SSO login workflow, automated kubecolor setup with syntax-highlighted kubectl aliases, history optimizations, and terminal keybindings.
 
 ### Install & Update
 ```bash
