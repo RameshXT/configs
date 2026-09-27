@@ -10,8 +10,8 @@ _aws_pick_session() {
       else
         case "$name" in
           smaitic) label="Smaitic Labs" ;;
-          smaitik) label="Smaitic Venture Stage" ;;
-          smaitik-prod) label="Smaitic Venture Prod" ;;
+          smaitik) label="SVPL Engineering" ;;
+          smaitik-prod) label="SVPL Prod" ;;
           *) label="$name" ;;
         esac
       fi
@@ -85,6 +85,28 @@ _aws_pick_session() {
   echo "${sessions[$idx]}"
 }
 
+_aws_resolve_session() {
+  local s_lower=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+  case "$s_lower" in
+    eng|engineering|stage|smaitik|svpl-eng|svpl-stage)
+      echo "smaitik"
+      ;;
+    prod|production|smaitik-prod|svpl-prod)
+      echo "smaitik-prod"
+      ;;
+    labs|smaitic|smaitic-labs)
+      echo "smaitic"
+      ;;
+    *)
+      if grep -q "^\[sso-session[[:space:]]\+$1\]" "$HOME/.aws/config" 2>/dev/null; then
+        echo "$1"
+      else
+        echo ""
+      fi
+      ;;
+  esac
+}
+
 _aws_get_display_name() {
   local session="$1" prev_line="" line
   while IFS= read -r line; do
@@ -104,8 +126,8 @@ _aws_get_display_name() {
 
   case "$session" in
     smaitic) echo "Smaitic Labs" ;;
-    smaitik) echo "Smaitic Venture Stage" ;;
-    smaitik-prod) echo "Smaitic Venture Prod" ;;
+    smaitik) echo "SVPL Engineering" ;;
+    smaitik-prod) echo "SVPL Prod" ;;
     *) echo "$session" ;;
   esac
 }
@@ -243,7 +265,8 @@ _aws_resolve_profile() {
   local target="$1" target_sess="$2"
   local cur_profile="" cur_session="" cur_role="" cur_region="" line
   local -a avail_roles
-  local cross_session="" cross_role="" matched_prof="" matched_role="" matched_reg=""
+  local cross_session="" cross_role="" cross_prof="" cross_reg=""
+  local matched_prof="" matched_role="" matched_reg="" matched_sess=""
 
   _check_prof() {
     if [ -n "$cur_profile" ]; then
@@ -259,16 +282,19 @@ _aws_resolve_profile() {
         is_match=1
       fi
 
-      if [ "$cur_session" = "$target_sess" ]; then
+      if [ -z "$target_sess" ] || [ "$cur_session" = "$target_sess" ]; then
         avail_roles+=("${cur_role:-$cur_profile}")
-        if [ $is_match -eq 1 ]; then
+        if [ $is_match -eq 1 ] && [ -z "$matched_prof" ]; then
           matched_prof="$cur_profile"
           matched_role="${cur_role:-$cur_profile}"
           matched_reg="${cur_region:-ap-south-1}"
+          matched_sess="$cur_session"
         fi
       elif [ $is_match -eq 1 ]; then
         cross_session="$cur_session"
         cross_role="${cur_role:-$cur_profile}"
+        cross_prof="$cur_profile"
+        cross_reg="${cur_region:-ap-south-1}"
       fi
     fi
   }
@@ -333,14 +359,14 @@ _aws_resolve_profile() {
       matched_prof=$(_aws_ensure_profile_for_role "$target_sess" "$r_match" "$def_region")
       matched_role="$r_match"
       matched_reg="$def_region"
+      matched_sess="$target_sess"
     fi
   fi
 
   if [ -n "$matched_prof" ]; then
-    echo "MATCH|$matched_prof|$matched_role|$matched_reg"
-  elif [ -n "$cross_session" ]; then
-    local cross_name=$(_aws_get_display_name "$cross_session")
-    echo "CROSS|$cross_name|$cross_role|${avail_roles[*]}"
+    echo "MATCH|$matched_prof|$matched_role|$matched_reg|${matched_sess:-$target_sess}"
+  elif [ -n "$cross_prof" ]; then
+    echo "CROSS_MATCH|$cross_prof|$cross_role|$cross_reg|$cross_session"
   else
     echo "NONE|${avail_roles[*]}"
   fi
@@ -387,7 +413,7 @@ _aws_pick_cluster() {
 }
 
 _aws_fetch_kubeconfig() {
-  local profile="$1" session="$2" region="$3" role_name="$4"
+  local profile="$1" session="$2" region="$3" role_name="$4" save_global="$5"
   local disp_name
   disp_name=$(_aws_get_display_name "$session")
 
@@ -438,7 +464,10 @@ _aws_fetch_kubeconfig() {
     export KUBECONFIG="$kubeconfig_path"
     chmod 600 "$kubeconfig_path"
     mkdir -p "$HOME/.aws"
-    echo "$kubeconfig_path" > "$HOME/.aws/last-kubeconfig"
+    if [ "$save_global" = "1" ]; then
+      echo "$kubeconfig_path" > "$HOME/.aws/default-kubeconfig"
+      echo "$kubeconfig_path" > "$HOME/.aws/last-kubeconfig"
+    fi
     echo "Kubeconfig ready: $kubeconfig_path"
     local kctx
     kctx=$(kubectl --kubeconfig "$kubeconfig_path" config current-context 2>/dev/null)
@@ -718,6 +747,44 @@ _aws_pick_profile() {
   echo "${profiles[$idx]}"
 }
 
+_aws_apply_profile() {
+  local prof="$1" sess="$2" reg="$3" role_name="$4" save_global="$5"
+  local disp_name
+  disp_name=$(_aws_get_display_name "$sess")
+
+  export AWS_PROFILE="$prof"
+  echo "Verifying credentials for $role_name ($disp_name)..."
+  local identity
+  identity=$(command aws sts get-caller-identity --output json 2>&1)
+  if [ $? -ne 0 ]; then
+    echo "Session check failed or expired for $disp_name. Logging in..."
+    if command aws sso login --sso-session "$sess"; then
+      identity=$(command aws sts get-caller-identity --output json 2>&1)
+      if [ $? -ne 0 ]; then
+        echo "Authentication failed after login."
+        return 1
+      fi
+    else
+      echo "SSO login failed for $disp_name."
+      return 1
+    fi
+  fi
+
+  local role=$(echo "$identity" | grep -o '"Arn":[^,]*' | sed 's/.*assumed-role\///;s/".*//')
+  echo "Switched to: $disp_name ($role_name)"
+  echo "Role: $role"
+
+  if [ "$save_global" = "1" ]; then
+    mkdir -p "$HOME/.aws"
+    echo "$prof" > "$HOME/.aws/default-profile"
+    echo "$prof" > "$HOME/.aws/last-profile"
+    echo "$sess" > "$HOME/.aws/last-session"
+  fi
+
+  _aws_fetch_kubeconfig "$prof" "$sess" "$reg" "$role_name" "$save_global"
+  return 0
+}
+
 aws() {
   case "$1" in
     login)
@@ -726,13 +793,16 @@ aws() {
         session=$(_aws_pick_session) || return 1
         session="${session%$'\r'}"
       fi
+      local resolved_s
+      resolved_s=$(_aws_resolve_session "$session")
+      [ -n "$resolved_s" ] && session="$resolved_s"
       _aws_ensure_account_id "$session" || return 1
       echo "Logging into SSO session: $session"
       if command aws sso login --sso-session "$session"; then
         echo "Login successful for session: $session"
         echo "$session" > "$HOME/.aws/last-session"
         echo ""
-        aws switch
+        aws switch "$session"
       else
         echo "Login failed. Check session name or network."
         return 1
@@ -854,96 +924,168 @@ aws() {
       echo -e "\e[32m[OK]\e[0m Updated Account ID to $acct_id for $disp_name in ~/.aws/config\n"
       ;;
 
-    switch)
-      local target="$2"
-
-      local _last_sess _acct_name=""
-      _last_sess=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
-      if [ -n "$_last_sess" ]; then
-        _acct_name=$(_aws_get_display_name "$_last_sess")
-        echo "[AWS]: $_acct_name"
+    use|switch)
+      local save_global=0
+      shift
+      if [ "$1" = "-g" ] || [ "$1" = "--global" ] || [ "$1" = "--default" ]; then
+        save_global=1
+        shift
       fi
+
+      local target="$1"
+      local opt_role="$2"
 
       if [ "$target" = "clear" ]; then
         unset AWS_PROFILE
         unset KUBECONFIG
-        rm -f "$HOME/.aws/last-profile"
-        rm -f "$HOME/.aws/last-kubeconfig"
-        echo "AWS_PROFILE and KUBECONFIG cleared. SSO session is still active."
+        if [ "$save_global" = "1" ]; then
+          rm -f "$HOME/.aws/default-profile" "$HOME/.aws/default-kubeconfig"
+          rm -f "$HOME/.aws/last-profile" "$HOME/.aws/last-kubeconfig"
+          echo "Cleared active tab and default configuration."
+        else
+          echo "AWS_PROFILE and KUBECONFIG cleared in current tab."
+        fi
         return 0
       fi
 
-      if [ -z "$target" ]; then
-        if [ -n "$_acct_name" ]; then
-          echo "Select role under $_acct_name account:"
-          echo ""
-        fi
-        local selected
-        selected=$(_aws_pick_profile "$_last_sess") || return 1
-        export AWS_PROFILE="$selected"
+      local tab_sess=""
+      if [ -n "$AWS_PROFILE" ]; then
+        local p_info
+        p_info=$(_aws_get_profile_info "$AWS_PROFILE")
+        tab_sess=$(echo "$p_info" | cut -d'|' -f1)
+      fi
+      [ -z "$tab_sess" ] && tab_sess=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
 
+      if [ -z "$target" ]; then
+        local target_sess="$tab_sess"
+        if [ -z "$target_sess" ]; then
+          target_sess=$(_aws_pick_session) || return 1
+          target_sess="${target_sess%$'\r'}"
+        fi
+        local disp_name
+        disp_name=$(_aws_get_display_name "$target_sess")
+        echo "Select role under $disp_name account:"
+        echo ""
+        local selected
+        selected=$(_aws_pick_profile "$target_sess") || return 1
         local prof_info role_display reg
         prof_info=$(_aws_get_profile_info "$selected")
         role_display=$(echo "$prof_info" | cut -d'|' -f2)
         reg=$(echo "$prof_info" | cut -d'|' -f3)
         [ -z "$role_display" ] && role_display="$selected"
-
-        echo "Verifying credentials for $role_display"
-        local identity
-        identity=$(command aws sts get-caller-identity --output json 2>&1)
-        if [ $? -ne 0 ]; then
-          echo "Session check failed for $role_display. Run: aws login"
-          return 1
-        fi
-        local role=$(echo "$identity" | grep -o '"Arn":[^,]*' | sed 's/.*assumed-role\///;s/".*//')
-        echo "Switched to: $role_display"
-        echo "Role: $role"
-        mkdir -p "$HOME/.aws"
-        echo "$selected" > "$HOME/.aws/last-profile"
-
-        _aws_fetch_kubeconfig "$selected" "$_last_sess" "$reg" "$role_display"
-        return 0
+        _aws_apply_profile "$selected" "$target_sess" "$reg" "$role_display" "$save_global"
+        return $?
       fi
 
-      local res status_code m_prof m_role m_reg
-      res=$(_aws_resolve_profile "$target" "$_last_sess")
+      local resolved_sess
+      resolved_sess=$(_aws_resolve_session "$target")
+      if [ -n "$resolved_sess" ]; then
+        local disp_name
+        disp_name=$(_aws_get_display_name "$resolved_sess")
+        echo "[AWS]: $disp_name"
+
+        if [ -n "$opt_role" ]; then
+          local res status_code m_prof m_role m_reg
+          res=$(_aws_resolve_profile "$opt_role" "$resolved_sess")
+          status_code=$(echo "$res" | cut -d'|' -f1)
+          if [ "$status_code" = "MATCH" ] || [ "$status_code" = "CROSS_MATCH" ]; then
+            m_prof=$(echo "$res" | cut -d'|' -f2)
+            m_role=$(echo "$res" | cut -d'|' -f3)
+            m_reg=$(echo "$res" | cut -d'|' -f4)
+            _aws_apply_profile "$m_prof" "$resolved_sess" "$m_reg" "$m_role" "$save_global"
+            return $?
+          else
+            echo "Error: Unknown role '$opt_role' under $disp_name."
+            return 1
+          fi
+        else
+          local -a sess_profs=()
+          local cur_p="" cur_s="" l
+          while IFS= read -r l; do
+            local clean="${l%$'\r'}"
+            if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
+              cur_p="${BASH_REMATCH[1]%$'\r'}"
+              cur_s=""
+            elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+              cur_s="${BASH_REMATCH[1]%$'\r'}"
+              cur_s="${cur_s#"${cur_s%%[![:space:]]*}"}"
+              cur_s="${cur_s%"${cur_s##*[![:space:]]}"}"
+              if [ "$cur_s" = "$resolved_sess" ] && [ -n "$cur_p" ]; then
+                sess_profs+=("$cur_p")
+              fi
+            fi
+          done < "$HOME/.aws/config"
+
+          if [ ${#sess_profs[@]} -eq 1 ]; then
+            local selected="${sess_profs[0]}"
+            local prof_info role_display reg
+            prof_info=$(_aws_get_profile_info "$selected")
+            role_display=$(echo "$prof_info" | cut -d'|' -f2)
+            reg=$(echo "$prof_info" | cut -d'|' -f3)
+            [ -z "$role_display" ] && role_display="$selected"
+            _aws_apply_profile "$selected" "$resolved_sess" "$reg" "$role_display" "$save_global"
+            return $?
+          else
+            echo "Select role under $disp_name account:"
+            echo ""
+            local selected
+            selected=$(_aws_pick_profile "$resolved_sess") || return 1
+            local prof_info role_display reg
+            prof_info=$(_aws_get_profile_info "$selected")
+            role_display=$(echo "$prof_info" | cut -d'|' -f2)
+            reg=$(echo "$prof_info" | cut -d'|' -f3)
+            [ -z "$role_display" ] && role_display="$selected"
+            _aws_apply_profile "$selected" "$resolved_sess" "$reg" "$role_display" "$save_global"
+            return $?
+          fi
+        fi
+      fi
+
+      local res status_code m_prof m_role m_reg m_sess
+      res=$(_aws_resolve_profile "$target" "$tab_sess")
       status_code=$(echo "$res" | cut -d'|' -f1)
 
-      if [ "$status_code" = "CROSS" ]; then
-        local cross_acc=$(echo "$res" | cut -d'|' -f2)
-        local roles=$(echo "$res" | cut -d'|' -f4)
-        echo "Error: Role '$target' belongs to $cross_acc. You are currently logged into $_acct_name."
-        echo "Available roles under $_acct_name: $roles"
-        return 1
-      elif [ "$status_code" = "NONE" ]; then
-        local roles=$(echo "$res" | cut -d'|' -f2)
-        echo "Error: Unknown role '$target'."
-        echo "Available roles under $_acct_name: $roles"
-        return 1
-      fi
-
-      m_prof=$(echo "$res" | cut -d'|' -f2)
-      m_role=$(echo "$res" | cut -d'|' -f3)
-      m_reg=$(echo "$res" | cut -d'|' -f4)
-
-      export AWS_PROFILE="$m_prof"
-      echo "Verifying credentials for $m_role"
-      local identity
-      identity=$(command aws sts get-caller-identity --output json 2>&1)
-      if [ $? -ne 0 ]; then
-        echo "Profile set to $m_prof but session check failed."
-        echo "You likely need to run: aws login"
+      if [ "$status_code" = "MATCH" ]; then
+        m_prof=$(echo "$res" | cut -d'|' -f2)
+        m_role=$(echo "$res" | cut -d'|' -f3)
+        m_reg=$(echo "$res" | cut -d'|' -f4)
+        m_sess=$(echo "$res" | cut -d'|' -f5)
+        [ -z "$m_sess" ] && m_sess="$tab_sess"
+        _aws_apply_profile "$m_prof" "$m_sess" "$m_reg" "$m_role" "$save_global"
+        return $?
+      elif [ "$status_code" = "CROSS_MATCH" ]; then
+        m_prof=$(echo "$res" | cut -d'|' -f2)
+        m_role=$(echo "$res" | cut -d'|' -f3)
+        m_reg=$(echo "$res" | cut -d'|' -f4)
+        m_sess=$(echo "$res" | cut -d'|' -f5)
+        _aws_apply_profile "$m_prof" "$m_sess" "$m_reg" "$m_role" "$save_global"
+        return $?
+      else
+        local avail=$(echo "$res" | cut -d'|' -f2)
+        echo "Error: Unknown role or account '$target'."
+        [ -n "$avail" ] && echo "Available roles: $avail"
         return 1
       fi
-      local role=$(echo "$identity" | grep -o '"Arn":[^,]*' | sed 's/.*assumed-role\///;s/".*//')
-      echo "Switched to: $m_role"
-      echo "Role: $role"
+      ;;
 
-      mkdir -p "$HOME/.aws"
-      echo "$m_prof" > "$HOME/.aws/last-profile"
-
-      _aws_fetch_kubeconfig "$m_prof" "$_last_sess" "$m_reg" "$m_role"
-      return 0
+    default|set-default)
+      shift
+      local target="$1"
+      local opt_role="$2"
+      if [ -z "$target" ]; then
+        local def_prof def_kcfg
+        def_prof=$(cat "$HOME/.aws/default-profile" 2>/dev/null | tr -d $'\r')
+        def_kcfg=$(cat "$HOME/.aws/default-kubeconfig" 2>/dev/null | tr -d $'\r')
+        if [ -n "$def_prof" ]; then
+          echo "Current default profile for new tabs: $def_prof"
+          [ -n "$def_kcfg" ] && echo "Default kubeconfig: $def_kcfg"
+        else
+          echo "No default profile set. New tabs fall back to last-profile."
+        fi
+        echo "To set a new default, run: aws default <eng|prod|session|role>"
+        return 0
+      fi
+      aws switch -g "$target" "$opt_role"
       ;;
 
     status)
@@ -1021,14 +1163,18 @@ aws() {
       ;;
 
     menu)
-      echo "aws login [session]    -    Log into SSO (interactive selector if omitted)."
-      echo "aws logout <session>   -    Log out of SSO session."
-      echo "aws switch [role]      -    Switch role (lead, power, read, or interactive picker)."
-      echo "aws switch clear       -    Unset AWS_PROFILE and KUBECONFIG."
-      echo "aws set-account        -    Update AWS Account ID for an SSO session."
-      echo "aws status             -    Show active account, role, and token status."
-      echo "aws menu               -    Show this list."
-      echo "aws <command>          -    Passes through to native AWS CLI."
+      echo "aws use <eng|prod|role>    -  Switch account/role in CURRENT tab only"
+      echo "aws switch [target]        -  Switch role or account in current tab (pass -g for global default)"
+      echo "aws default [target]       -  Set or view default account/role for newly opened tabs"
+      echo "aws-eng [role]             -  Shortcut: switch current tab to SVPL Engineering"
+      echo "aws-prod [role]            -  Shortcut: switch current tab to SVPL Prod"
+      echo "aws login [session]        -  Log into SSO (interactive selector if omitted)."
+      echo "aws logout <session>       -  Log out of SSO session."
+      echo "aws switch clear           -  Unset AWS_PROFILE and KUBECONFIG."
+      echo "aws set-account            -  Update AWS Account ID for an SSO session."
+      echo "aws status                 -  Show active account, role, and token status."
+      echo "aws menu                   -  Show this list."
+      echo "aws <command>              -  Passes through to native AWS CLI."
       ;;
 
     *)
@@ -1041,18 +1187,31 @@ if command -v aws_completer &> /dev/null; then
   complete -C "$(command -v aws_completer)" aws
 fi
 
-if [ -s "$HOME/.aws/last-profile" ]; then
-  _last_prof=$(cat "$HOME/.aws/last-profile" 2>/dev/null | tr -d $'\r')
-  if [ -n "$_last_prof" ]; then
-    export AWS_PROFILE="$_last_prof"
+if [ -z "$AWS_PROFILE" ]; then
+  if [ -s "$HOME/.aws/default-profile" ]; then
+    _def_prof=$(cat "$HOME/.aws/default-profile" 2>/dev/null | tr -d $'\r')
+    [ -n "$_def_prof" ] && export AWS_PROFILE="$_def_prof"
+    unset _def_prof
+  elif [ -s "$HOME/.aws/last-profile" ]; then
+    _last_prof=$(cat "$HOME/.aws/last-profile" 2>/dev/null | tr -d $'\r')
+    [ -n "$_last_prof" ] && export AWS_PROFILE="$_last_prof"
+    unset _last_prof
   fi
-  unset _last_prof
 fi
 
-if [ -s "$HOME/.aws/last-kubeconfig" ]; then
-  _last_kcfg=$(cat "$HOME/.aws/last-kubeconfig" 2>/dev/null | tr -d $'\r')
-  if [ -f "$_last_kcfg" ]; then
-    export KUBECONFIG="$_last_kcfg"
+if [ -z "$KUBECONFIG" ]; then
+  if [ -s "$HOME/.aws/default-kubeconfig" ]; then
+    _def_kcfg=$(cat "$HOME/.aws/default-kubeconfig" 2>/dev/null | tr -d $'\r')
+    [ -f "$_def_kcfg" ] && export KUBECONFIG="$_def_kcfg"
+    unset _def_kcfg
+  elif [ -s "$HOME/.aws/last-kubeconfig" ]; then
+    _last_kcfg=$(cat "$HOME/.aws/last-kubeconfig" 2>/dev/null | tr -d $'\r')
+    [ -f "$_last_kcfg" ] && export KUBECONFIG="$_last_kcfg"
+    unset _last_kcfg
   fi
-  unset _last_kcfg
 fi
+
+aws-eng() { aws use eng "$@"; }
+aws-prod() { aws use prod "$@"; }
+aws-labs() { aws use labs "$@"; }
+
