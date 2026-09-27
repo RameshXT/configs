@@ -1105,8 +1105,8 @@ aws() {
 
       local prof_info sess role_name
       prof_info=$(_aws_get_profile_info "$AWS_PROFILE")
-      sess="${prof_info%%|*}"
-      role_name="${prof_info##*|}"
+      sess=$(echo "$prof_info" | cut -d'|' -f1)
+      role_name=$(echo "$prof_info" | cut -d'|' -f2)
       [ -z "$sess" ] && sess="$_last_sess"
       if [ -n "$sess" ]; then
         local _acct_name=$(_aws_get_display_name "$sess")
@@ -1227,5 +1227,3 @@ aws-stage() { aws use stage "$@"; }
 aws-eng() { aws use eng "$@"; }
 aws-prod() { aws use prod "$@"; }
 aws-labs() { aws use labs "$@"; }
-
-
