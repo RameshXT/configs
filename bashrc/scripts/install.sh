@@ -88,7 +88,6 @@ cp "$SCRIPT_DIR/../assets/terminal.sh" "$BASHRC_DIR/terminal.sh"
 cp "$SCRIPT_DIR/../assets/aws.sh" "$BASHRC_DIR/aws.sh"
 cp "$SCRIPT_DIR/../assets/kubecolor.sh" "$BASHRC_DIR/kubecolor.sh"
 
-# Normalize CRLF to LF for all scripts (safe on Windows-authored files)
 for _f in "$BASHRC_DIR/history.sh" "$BASHRC_DIR/aliases.sh" "$BASHRC_DIR/terminal.sh" "$BASHRC_DIR/aws.sh" "$BASHRC_DIR/kubecolor.sh"; do
   sed -i 's/\r$//' "$_f"
 done

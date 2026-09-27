@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# kubecolor integration
 if command -v kubecolor >/dev/null 2>&1; then
     export KUBECOLOR_PRESET="${KUBECOLOR_PRESET:-dark}"
 
