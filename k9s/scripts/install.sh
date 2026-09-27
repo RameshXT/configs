@@ -51,6 +51,13 @@ if [ "${1:-}" != "--child" ]; then
  |_|\_\   /_/ |___/  by RameshXT
 
 EOF
+  echo -e -n "${YELLOW}Are you sure you want to install k9s customizations? (y/n): ${NC}" >&3
+  read -r response </dev/tty || response="n"
+  if [[ ! "$response" =~ ^[Yy]$ ]]; then
+    echo -e "\n${BLUE}[INFO]${NC}: Installation aborted by user." >&3
+    exit 0
+  fi
+
   echo -e "${BLUE}[k9s]${NC}: Installing...\n" >&3
 fi
 

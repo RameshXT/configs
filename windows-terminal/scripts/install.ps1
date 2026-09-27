@@ -29,6 +29,14 @@ Write-Host @"
 
 "@
 
+$response = Read-Host "Are you sure you want to install Windows Terminal customizations? (y/n)"
+if ($response -notmatch '^[Yy]$') {
+    Write-Host ""
+    Write-UI "Installation aborted by user." "INFO"
+    return
+}
+
+Write-Host ""
 Write-Host "[CMD]: Installing..." -ForegroundColor Cyan
 Write-Host ""
 
