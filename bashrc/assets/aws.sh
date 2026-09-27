@@ -1406,15 +1406,19 @@ if [ -z "$KUBECONFIG" ]; then
   unset _last_kcfg _target_kcfg
 fi
 
+_aws_last_synced_profile=""
 _aws_sync_last_state() {
   if [ -n "$AWS_PROFILE" ]; then
-    echo "$AWS_PROFILE" > "$HOME/.aws/last-profile" 2>/dev/null
-    local p_info sess
-    p_info=$(_aws_get_profile_info "$AWS_PROFILE")
-    sess=$(echo "$p_info" | cut -d'|' -f1)
-    [ -n "$sess" ] && echo "$sess" > "$HOME/.aws/last-session" 2>/dev/null
-    if [ -n "$KUBECONFIG" ]; then
-      echo "$KUBECONFIG" > "$HOME/.aws/last-kubeconfig" 2>/dev/null
+    if [ "$AWS_PROFILE" != "$_aws_last_synced_profile" ]; then
+      _aws_last_synced_profile="$AWS_PROFILE"
+      echo "$AWS_PROFILE" > "$HOME/.aws/last-profile" 2>/dev/null
+      local p_info sess
+      p_info=$(_aws_get_profile_info "$AWS_PROFILE")
+      sess=$(echo "$p_info" | cut -d'|' -f1)
+      [ -n "$sess" ] && echo "$sess" > "$HOME/.aws/last-session" 2>/dev/null
+      if [ -n "$KUBECONFIG" ]; then
+        echo "$KUBECONFIG" > "$HOME/.aws/last-kubeconfig" 2>/dev/null
+      fi
     fi
   fi
 }

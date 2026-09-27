@@ -1,7 +1,22 @@
 add_newline = false
-command_timeout = 50
+command_timeout = 20
 
 format = """$username$hostname$directory$character"""
+
+[aws]
+disabled = true
+
+[gcloud]
+disabled = true
+
+[azure]
+disabled = true
+
+[git_status]
+disabled = true
+
+[package]
+disabled = true
 
 [username]
 style_user = "blue bold"
