@@ -10,8 +10,8 @@ _aws_pick_session() {
       else
         case "$name" in
           smaitic) label="Smaitic Labs" ;;
-          smaitik) label="SVPL Engineering" ;;
-          smaitik-prod) label="SVPL Prod" ;;
+          smaitik) label="Smaitic Venture Stage" ;;
+          smaitik-prod) label="Smaitic Venture Prod" ;;
           *) label="$name" ;;
         esac
       fi
@@ -126,8 +126,8 @@ _aws_get_display_name() {
 
   case "$session" in
     smaitic) echo "Smaitic Labs" ;;
-    smaitik) echo "SVPL Engineering" ;;
-    smaitik-prod) echo "SVPL Prod" ;;
+    smaitik) echo "Smaitic Venture Stage" ;;
+    smaitik-prod) echo "Smaitic Venture Prod" ;;
     *) echo "$session" ;;
   esac
 }
@@ -1163,11 +1163,11 @@ aws() {
       ;;
 
     menu)
-      echo "aws use <eng|prod|role>    -  Switch account/role in CURRENT tab only"
+      echo "aws use <stage|prod|role>  -  Switch account/role in CURRENT tab only"
       echo "aws switch [target]        -  Switch role or account in current tab (pass -g for global default)"
       echo "aws default [target]       -  Set or view default account/role for newly opened tabs"
-      echo "aws-eng [role]             -  Shortcut: switch current tab to SVPL Engineering"
-      echo "aws-prod [role]            -  Shortcut: switch current tab to SVPL Prod"
+      echo "aws-stage [role]           -  Shortcut: switch current tab to Smaitic Venture Stage"
+      echo "aws-prod [role]            -  Shortcut: switch current tab to Smaitic Venture Prod"
       echo "aws login [session]        -  Log into SSO (interactive selector if omitted)."
       echo "aws logout <session>       -  Log out of SSO session."
       echo "aws switch clear           -  Unset AWS_PROFILE and KUBECONFIG."
@@ -1211,6 +1211,7 @@ if [ -z "$KUBECONFIG" ]; then
   fi
 fi
 
+aws-stage() { aws use stage "$@"; }
 aws-eng() { aws use eng "$@"; }
 aws-prod() { aws use prod "$@"; }
 aws-labs() { aws use labs "$@"; }
