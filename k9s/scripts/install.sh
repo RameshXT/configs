@@ -96,7 +96,42 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 ui_ok "Checked for existing installations"
 
-command -v k9s >/dev/null 2>&1 || { echo "[install] error: k9s not found in PATH" >&2; ui_error "k9s not found in PATH"; exit 1; }
+if ! command -v k9s >/dev/null 2>&1; then
+  echo -e -n "${YELLOW}k9s is not installed. Would you like to install it now? (y/n): ${NC}" >&3
+  read -r k9s_resp </dev/tty || k9s_resp="n"
+  if [[ ! "$k9s_resp" =~ ^[Yy]$ ]]; then
+    ui_warn "k9s installation skipped by user. Exiting."
+    exit 0
+  fi
+
+  ARCH="$(dpkg --print-architecture 2>/dev/null || echo "amd64")"
+  DEB_FILE="k9s_linux_${ARCH}.deb"
+  DEB_URL="https://github.com/derailed/k9s/releases/latest/download/${DEB_FILE}"
+  TMP_K9S="$(mktemp -d)"
+
+  curl -fsSL "$DEB_URL" -o "${TMP_K9S}/${DEB_FILE}" 2>/dev/null &
+  spin $! "Downloading k9s (${ARCH})..."
+
+  if [ -s "${TMP_K9S}/${DEB_FILE}" ]; then
+    SUDO_CMD=""
+    if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+      SUDO_CMD="sudo"
+    fi
+    $SUDO_CMD apt install -y "${TMP_K9S}/${DEB_FILE}" >/dev/null 2>&1 || $SUDO_CMD dpkg -i "${TMP_K9S}/${DEB_FILE}" >/dev/null 2>&1
+    rm -rf "$TMP_K9S"
+    if command -v k9s >/dev/null 2>&1; then
+      ui_ok "k9s: Installed successfully"
+    else
+      ui_error "k9s: Installation failed"
+      exit 1
+    fi
+  else
+    ui_error "Failed to download k9s deb package"
+    rm -rf "$TMP_K9S"
+    exit 1
+  fi
+fi
+
 command -v yq  >/dev/null 2>&1 || { echo "[install] error: yq not found in PATH" >&2; ui_error "yq not found in PATH"; exit 1; }
 
 ui_ok "Verified dependencies"
