@@ -155,8 +155,8 @@ fi
   echo 'source ~/.config/bashrc.d/aws.sh'
   echo 'source ~/.config/bashrc.d/history.sh'
   echo 'source ~/.config/bashrc.d/terminal.sh'
-  echo 'source ~/.config/bashrc.d/aliases.sh'
   echo 'source ~/.config/bashrc.d/kubecolor.sh'
+  echo 'source ~/.config/bashrc.d/aliases.sh'
   echo "$MARKER_END"
 } >> "$BASHRC"
 ui_ok "Wrapper: Injected strictly ordered source statements to ~/.bashrc"
