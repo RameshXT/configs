@@ -86,14 +86,60 @@ cp "$SCRIPT_DIR/../assets/history.sh" "$BASHRC_DIR/history.sh"
 cp "$SCRIPT_DIR/../assets/aliases.sh" "$BASHRC_DIR/aliases.sh"
 cp "$SCRIPT_DIR/../assets/terminal.sh" "$BASHRC_DIR/terminal.sh"
 cp "$SCRIPT_DIR/../assets/aws.sh" "$BASHRC_DIR/aws.sh"
+cp "$SCRIPT_DIR/../assets/kubecolor.sh" "$BASHRC_DIR/kubecolor.sh"
 
 # Normalize CRLF to LF for all scripts (safe on Windows-authored files)
-for _f in "$BASHRC_DIR/history.sh" "$BASHRC_DIR/aliases.sh" "$BASHRC_DIR/terminal.sh" "$BASHRC_DIR/aws.sh"; do
+for _f in "$BASHRC_DIR/history.sh" "$BASHRC_DIR/aliases.sh" "$BASHRC_DIR/terminal.sh" "$BASHRC_DIR/aws.sh" "$BASHRC_DIR/kubecolor.sh"; do
   sed -i 's/\r$//' "$_f"
 done
 unset _f
 
 ui_ok "Scripts: Copied bash configurations to $BASHRC_DIR"
+
+LATEST_TAG=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/kubecolor/kubecolor/releases/latest 2>/dev/null | tr -d '\r' | sed 's|.*/tag/||')
+if [ -n "$LATEST_TAG" ]; then
+  KUBECOLOR_VERSION="${LATEST_TAG#v}"
+  CURRENT_VERSION=$(kubecolor --kubecolor-version 2>/dev/null | awk '{print $NF}' | tr -d 'v' || true)
+  if [ "$CURRENT_VERSION" = "$KUBECOLOR_VERSION" ]; then
+    ui_ok "Kubecolor: Already up-to-date (v${KUBECOLOR_VERSION})"
+  else
+    ARCH="$(dpkg --print-architecture 2>/dev/null || echo "amd64")"
+    TMP_KUBECOLOR="$(mktemp -d)"
+    DEB_NAME="kubecolor_${KUBECOLOR_VERSION}_linux_${ARCH}.deb"
+    BASE_URL="https://github.com/kubecolor/kubecolor/releases/download/${LATEST_TAG}"
+
+    curl -fsSL "${BASE_URL}/${DEB_NAME}" -o "${TMP_KUBECOLOR}/${DEB_NAME}" 2>/dev/null &
+    spin $! "Downloading kubecolor v${KUBECOLOR_VERSION} (${ARCH})..."
+
+    if [ -s "${TMP_KUBECOLOR}/${DEB_NAME}" ]; then
+      curl -fsSL "${BASE_URL}/checksums.txt" -o "${TMP_KUBECOLOR}/checksums.txt" 2>/dev/null || true
+      CHECKSUM_OK=0
+      if [ -s "${TMP_KUBECOLOR}/checksums.txt" ]; then
+        if (cd "${TMP_KUBECOLOR}" && grep " ${DEB_NAME}$" checksums.txt | sha256sum -c - >/dev/null 2>&1); then
+          CHECKSUM_OK=1
+        fi
+      else
+        CHECKSUM_OK=1
+      fi
+
+      if [ $CHECKSUM_OK -eq 1 ]; then
+        SUDO_CMD=""
+        if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+          SUDO_CMD="sudo"
+        fi
+        $SUDO_CMD dpkg -i "${TMP_KUBECOLOR}/${DEB_NAME}" >/dev/null 2>&1
+        ui_ok "Kubecolor: Installed v${KUBECOLOR_VERSION}"
+      else
+        ui_error "Kubecolor: SHA256 checksum verification failed"
+      fi
+    else
+      ui_warn "Kubecolor: Package download failed, skipping"
+    fi
+    rm -rf "${TMP_KUBECOLOR}"
+  fi
+else
+  ui_warn "Kubecolor: Failed to resolve latest release tag"
+fi
 
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   awk -v start="$MARKER_START" -v end="$MARKER_END" '
@@ -110,6 +156,7 @@ fi
   echo 'source ~/.config/bashrc.d/history.sh'
   echo 'source ~/.config/bashrc.d/terminal.sh'
   echo 'source ~/.config/bashrc.d/aliases.sh'
+  echo 'source ~/.config/bashrc.d/kubecolor.sh'
   echo "$MARKER_END"
 } >> "$BASHRC"
 ui_ok "Wrapper: Injected strictly ordered source statements to ~/.bashrc"
