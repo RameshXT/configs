@@ -107,7 +107,7 @@
             "cursorShape": "filledBox",
             "historySize": 32767,
             "opacity": 10,
-            "selectionBackground": "#87CEFA",
+            "selectionBackground": "#1E4160",
             "useAcrylic": true
         }
     },
