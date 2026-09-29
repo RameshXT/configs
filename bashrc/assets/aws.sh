@@ -859,6 +859,24 @@ _aws_pick_logout_session() {
   echo "${sessions[$idx]}"
 }
 
+_aws_sso_login() {
+  local sess="$1"
+  local status=0
+  PYTHONUNBUFFERED=1 command aws sso login --sso-session "$sess" 2>&1 | while IFS= read -r line; do
+    if [[ "$line" =~ ^gio: ]]; then
+      continue
+    elif [[ "$line" =~ (https?://[^[:space:]]+) ]]; then
+      local url="${BASH_REMATCH[1]}"
+      local colored_url=$'\e[1;4;36m'"$url"$'\e[0m'
+      printf "%s\n" "${line/"$url"/"$colored_url"}"
+    else
+      printf "%s\n" "$line"
+    fi
+  done
+  status="${PIPESTATUS[0]}"
+  return "$status"
+}
+
 _aws_apply_profile() {
   local prof="$1" sess="$2" reg="$3" role_name="$4" save_global="$5"
   local disp_name
@@ -870,7 +888,7 @@ _aws_apply_profile() {
   identity=$(command aws sts get-caller-identity --output json 2>&1)
   if [ $? -ne 0 ]; then
     echo "Session check failed or expired for $disp_name. Logging in..."
-    if command aws sso login --sso-session "$sess"; then
+    if _aws_sso_login "$sess"; then
       identity=$(command aws sts get-caller-identity --output json 2>&1)
       if [ $? -ne 0 ]; then
         echo "Authentication failed after login."
@@ -911,7 +929,7 @@ aws() {
       fi
       _aws_ensure_account_id "$session" || return 1
       echo "Logging into SSO session: $session"
-      if command aws sso login --sso-session "$session"; then
+      if _aws_sso_login "$session"; then
         echo "Login successful for session: $session"
         echo "$session" > "$HOME/.aws/last-session"
         echo ""
