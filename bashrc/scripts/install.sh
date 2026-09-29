@@ -161,6 +161,20 @@ else
   ui_warn "Kubecolor: Failed to resolve latest release tag"
 fi
 
+if [ -n "$WSL_DISTRO_NAME" ] && ! command -v wslview >/dev/null 2>&1; then
+  if command -v apt-get >/dev/null 2>&1; then
+    SUDO_CMD=""
+    if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+      SUDO_CMD="sudo"
+    fi
+    $SUDO_CMD apt-get update -qq >/dev/null 2>&1 || true
+    $SUDO_CMD apt-get install -y -qq wslu >/dev/null 2>&1 || true
+    if command -v wslview >/dev/null 2>&1; then
+      ui_ok "WSL: Installed wslu for browser integration"
+    fi
+  fi
+fi
+
 if grep -qF "$MARKER_START" "$BASHRC" 2>/dev/null; then
   awk -v start="$MARKER_START" -v end="$MARKER_END" '
     $0 == start { in_block=1; next }

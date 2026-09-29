@@ -12,7 +12,7 @@ export PS1='${debian_chroot:+($debian_chroot)}\[\033[01;34m\]\u@\h\[\033[00m\]:\
 if [ -n "$WSL_DISTRO_NAME" ]; then
   if command -v wslview >/dev/null 2>&1; then
     export BROWSER="wslview"
-  elif [ -x "/mnt/c/Windows/explorer.exe" ]; then
-    export BROWSER="/mnt/c/Windows/explorer.exe"
+  else
+    export BROWSER="rundll32.exe url.dll,FileProtocolHandler %s"
   fi
 fi
