@@ -943,6 +943,27 @@ aws() {
     logout)
       shift
       local target="$*"
+      if [ "$target" = "-a" ] || [ "$target" = "--all" ] || [ "$target" = "all" ]; then
+        local confirm=""
+        echo -e -n "\e[33m[WARN]\e[0m Wipe all AWS SSO sessions, cached credentials, and kubeconfigs? [y/N]: " >&2
+        read -r confirm </dev/tty
+        case "$confirm" in
+          [yY]|[yY][eE][sS])
+            rm -f "$HOME/.aws/sso/cache"/*.json 2>/dev/null
+            rm -f "$HOME/.aws/cli/cache"/*.json 2>/dev/null
+            rm -f "$HOME/.kube/config-"* 2>/dev/null
+            rm -f "$HOME/.aws/last-"* "$HOME/.aws/default-"* 2>/dev/null
+            unset AWS_PROFILE KUBECONFIG
+            echo -e "\e[32m[OK]\e[0m Successfully wiped all AWS sessions, profiles, and kubeconfigs."
+            return 0
+            ;;
+          *)
+            echo "Aborted."
+            return 0
+            ;;
+        esac
+      fi
+
       local session=""
 
       if [ -n "$target" ]; then
@@ -1336,7 +1357,7 @@ aws() {
       echo "aws-stage [role]           -  Shortcut: switch current tab to Smaitic Venture Stage"
       echo "aws-prod [role]            -  Shortcut: switch current tab to Smaitic Venture Prod"
       echo "aws login [session]        -  Log into SSO (interactive selector if omitted)."
-      echo "aws logout <session>       -  Log out of SSO session."
+      echo "aws logout [-a|session]    -  Log out of SSO session (-a to wipe all)."
       echo "aws switch clear           -  Unset AWS_PROFILE and KUBECONFIG."
       echo "aws set-account            -  Update AWS Account ID for an SSO session."
       echo "aws status                 -  Show active account, role, and token status."
