@@ -85,6 +85,38 @@ _aws_pick_session() {
   echo "${sessions[$idx]}"
 }
 
+_aws_pick_switch_type() {
+  local -a labels=("profile" "access" "[Abort]")
+  local -a values=("profile" "access" "__ABORT__")
+  local idx=0 total=${#labels[@]} ESC=$'\033' i
+  tput civis >/dev/tty 2>/dev/null
+  trap 'tput cnorm >/dev/tty 2>/dev/null' RETURN INT TERM
+
+  for i in "${!labels[@]}"; do
+    [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2 || printf "  %s\n" "${labels[$i]}" >&2
+  done
+
+  while true; do
+    IFS= read -rsn1 key
+    [[ "$key" == "$ESC" ]] && { IFS= read -rsn2 -t 0.1 seq; key="$ESC$seq"; }
+    case "$key" in
+      "${ESC}[A"|"k") (( idx = (idx - 1 + total) % total )) ;;
+      "${ESC}[B"|"j") (( idx = (idx + 1) % total )) ;;
+      "") break ;;
+      "q"|$'\x03') tput cnorm >/dev/tty 2>/dev/null; printf "\n" >&2; return 1 ;;
+    esac
+    printf "\e[%dA" "$total" >&2
+    for i in "${!labels[@]}"; do
+      [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2 || printf "  %s\n" "${labels[$i]}" >&2
+    done
+  done
+
+  tput cnorm >/dev/tty 2>/dev/null
+  printf "\n" >&2
+  [ "${values[$idx]}" = "__ABORT__" ] && return 1
+  echo "${values[$idx]}"
+}
+
 _aws_resolve_session() {
   local s_lower=$(echo "$*" | tr '[:upper:]' '[:lower:]')
   case "$s_lower" in
@@ -1141,25 +1173,58 @@ aws() {
       [ -z "$tab_sess" ] && tab_sess=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
 
       if [ -z "$target" ]; then
-        local target_sess="$tab_sess"
-        if [ -z "$target_sess" ]; then
-          target_sess=$(_aws_pick_session) || return 1
-          target_sess="${target_sess%$'\r'}"
+        local choice
+        choice=$(_aws_pick_switch_type) || return 0
+        if [ "$choice" = "__ABORT__" ] || [ -z "$choice" ]; then
+          echo "Switch aborted."
+          return 0
         fi
-        local disp_name
-        disp_name=$(_aws_get_display_name "$target_sess")
-        echo "Select role under $disp_name account:"
-        echo ""
-        local selected
-        selected=$(_aws_pick_profile "$target_sess") || return 1
-        local prof_info role_display reg
-        prof_info=$(_aws_get_profile_info "$selected")
-        role_display=$(echo "$prof_info" | cut -d'|' -f2)
-        reg=$(echo "$prof_info" | cut -d'|' -f3)
-        [ -z "$role_display" ] && role_display="$selected"
-        _aws_apply_profile "$selected" "$target_sess" "$reg" "$role_display" "$save_global"
-        return $?
+        target="$choice"
       fi
+
+      if [ "$target" = "profile" ]; then
+        local target_sess="$opt_role"
+        if [ -z "$target_sess" ]; then
+          target_sess=$(_aws_pick_session) || return 0
+          target_sess="${target_sess%$'\r'}"
+        else
+          local resolved_s
+          resolved_s=$(_aws_resolve_session "$target_sess")
+          [ -n "$resolved_s" ] && target_sess="$resolved_s"
+        fi
+        [ -z "$target_sess" ] && return 0
+        target="$target_sess"
+        opt_role=""
+      elif [ "$target" = "access" ]; then
+        if [ -z "$tab_sess" ]; then
+          echo "No active AWS session in this terminal. Run 'aws switch profile' first." >&2
+          return 1
+        fi
+        local role_target="$opt_role"
+        if [ -z "$role_target" ]; then
+          local disp_name
+          disp_name=$(_aws_get_display_name "$tab_sess")
+          echo "Select role under $disp_name account:"
+          echo ""
+          role_target=$(_aws_pick_profile "$tab_sess") || return 0
+        fi
+        [ -z "$role_target" ] && return 0
+
+        local res status_code m_prof m_role m_reg
+        res=$(_aws_resolve_profile "$role_target" "$tab_sess")
+        status_code=$(echo "$res" | cut -d'|' -f1)
+        if [ "$status_code" = "MATCH" ] || [ "$status_code" = "CROSS_MATCH" ]; then
+          m_prof=$(echo "$res" | cut -d'|' -f2)
+          m_role=$(echo "$res" | cut -d'|' -f3)
+          m_reg=$(echo "$res" | cut -d'|' -f4)
+          _aws_apply_profile "$m_prof" "$tab_sess" "$m_reg" "$m_role" "$save_global"
+          return $?
+        else
+          echo "Error: Unknown role '$role_target' under $(_aws_get_display_name "$tab_sess")." >&2
+          return 1
+        fi
+      fi
+
 
       local resolved_sess
       resolved_sess=$(_aws_resolve_session "$target" "$opt_role")
@@ -1351,9 +1416,10 @@ aws() {
       ;;
 
     menu)
-      echo "aws use <stage|prod|role>  -  Switch account/role in CURRENT tab only"
-      echo "aws switch [target]        -  Switch role or account in current tab (pass -g for global default)"
-      echo "aws default [target]       -  Set or view default account/role for newly opened tabs"
+      echo "aws switch profile [target] - Switch account/environment in current tab"
+      echo "aws switch access [role]    - Switch role/permissions in current account"
+      echo "aws switch [target]         - Interactive switch (profile, access, or direct target)"
+      echo "aws default [target]        - Set or view default account/role for newly opened tabs"
       echo "aws-stage [role]           -  Shortcut: switch current tab to Smaitic Venture Stage"
       echo "aws-prod [role]            -  Shortcut: switch current tab to Smaitic Venture Prod"
       echo "aws login [session]        -  Log into SSO (interactive selector if omitted)."
