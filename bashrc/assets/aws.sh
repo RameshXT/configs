@@ -120,11 +120,11 @@ _aws_pick_switch_type() {
 _aws_resolve_session() {
   local s_lower=$(echo "$*" | tr '[:upper:]' '[:lower:]')
   case "$s_lower" in
-    *eng*|*stage*|*smaitik*|*svpl-eng*|*svpl-stage*)
-      echo "smaitik"
-      ;;
     *prod*|*production*|*smaitik-prod*|*svpl-prod*)
       echo "smaitik-prod"
+      ;;
+    *eng*|*stage*|*smaitik*|*svpl-eng*|*svpl-stage*)
+      echo "smaitik"
       ;;
     *lab*|*smaitic*)
       echo "smaitic"
@@ -568,8 +568,6 @@ _aws_fetch_dynamic_roles() {
   s_reg=$(echo "$sess_info" | cut -d'|' -f2)
   [ -z "$s_reg" ] && s_reg="ap-south-1"
 
-  acct_id=$(_aws_get_session_account_id "$session")
-
   local f t_url t_val
   for f in "$HOME/.aws/sso/cache"/*.json; do
     [ ! -f "$f" ] && continue
@@ -590,17 +588,25 @@ _aws_fetch_dynamic_roles() {
 
   [ -z "$token" ] && return 1
 
-  if [ -z "$acct_id" ]; then
-    local acct_json
-    acct_json=$(command aws sso list-accounts --access-token "$token" --region "$s_reg" --output json 2>/dev/null)
-    if [ -n "$acct_json" ]; then
-      if command -v jq >/dev/null 2>&1; then
-        acct_id=$(echo "$acct_json" | jq -r '.accountList[0].accountId // empty' 2>/dev/null)
-      else
-        acct_id=$(echo "$acct_json" | grep -o '"accountId":[ ]*"[0-9]*"' | head -n1 | cut -d'"' -f4)
-      fi
+  local acct_json
+  acct_json=$(command aws sso list-accounts --access-token "$token" --region "$s_reg" --output json 2>/dev/null)
+  if [ -n "$acct_json" ]; then
+    local pat
+    case "$session" in
+      *prod*) pat="prod" ;;
+      *eng*|*stage*|*smaitik*) pat="eng|stage" ;;
+      *lab*) pat="lab" ;;
+      *) pat="$session" ;;
+    esac
+    if command -v jq >/dev/null 2>&1; then
+      acct_id=$(echo "$acct_json" | jq -r --arg p "$pat" '.accountList[] | select(.accountName | test($p; "i")) | .accountId' 2>/dev/null | head -n1)
+      [ -z "$acct_id" ] && acct_id=$(echo "$acct_json" | jq -r '.accountList[0].accountId // empty' 2>/dev/null)
+    else
+      acct_id=$(echo "$acct_json" | grep -C2 -i "$pat" 2>/dev/null | grep -o '"accountId":[ ]*"[0-9]*"' | head -n1 | cut -d'"' -f4)
+      [ -z "$acct_id" ] && acct_id=$(echo "$acct_json" | grep -o '"accountId":[ ]*"[0-9]*"' | head -n1 | cut -d'"' -f4)
     fi
   fi
+  [ -z "$acct_id" ] && acct_id=$(_aws_get_session_account_id "$session")
 
   [ -z "$acct_id" ] && return 1
 
