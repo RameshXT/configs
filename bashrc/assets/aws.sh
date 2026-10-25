@@ -310,7 +310,8 @@ _aws_resolve_profile() {
       if [ "$t_lower" = "$p_lower" ] || [ "$t_lower" = "$r_lower" ] || \
          [ "$t_lower" = "power" -a "${r_lower}" = "poweruseraccess" ] || \
          [ "$t_lower" = "read" -a "${r_lower}" = "readonlyaccess" ] || \
-         [ "$t_lower" = "lead" -a "${r_lower}" = "leaduseraccess" ]; then
+         [ "$t_lower" = "lead" -a "${r_lower}" = "leaduseraccess" ] || \
+         [ "$t_lower" = "admin" -a "${r_lower}" = "administratoraccess" ]; then
         is_match=1
       fi
 
@@ -376,7 +377,8 @@ _aws_resolve_profile() {
       if [ "$t_lower" = "$r_lower" ] || \
          [ "$t_lower" = "power" -a "$r_lower" = "poweruseraccess" ] || \
          [ "$t_lower" = "read" -a "$r_lower" = "readonlyaccess" ] || \
-         [ "$t_lower" = "lead" -a "$r_lower" = "leaduseraccess" ]; then
+         [ "$t_lower" = "lead" -a "$r_lower" = "leaduseraccess" ] || \
+         [ "$t_lower" = "admin" -a "$r_lower" = "administratoraccess" ]; then
         r_match="$r"
         break
       fi
@@ -515,49 +517,85 @@ _aws_fetch_kubeconfig() {
 
 _aws_get_session_details() {
   local target_session="$1"
-  local cur_sess="" s_url="" s_reg="" line
-  while IFS= read -r line; do
-    local clean="${line%$'\r'}"
-    if [[ "$clean" =~ ^\[sso-session[[:space:]]+([^]]+)\]$ ]]; then
-      if [ "$cur_sess" = "$target_session" ]; then
-        break
-      fi
-      cur_sess="${BASH_REMATCH[1]%$'\r'}"
-      s_url=""
-      s_reg=""
-    elif [[ "$clean" =~ ^sso_start_url[[:space:]]*=[[:space:]]*(.+)$ ]]; then
-      local v="${BASH_REMATCH[1]%$'\r'}"
-      v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
-      [ "$cur_sess" = "$target_session" ] && s_url="$v"
-    elif [[ "$clean" =~ ^sso_region[[:space:]]*=[[:space:]]*(.+)$ ]]; then
-      local v="${BASH_REMATCH[1]%$'\r'}"
-      v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
-      [ "$cur_sess" = "$target_session" ] && s_reg="$v"
-    fi
-  done < "$HOME/.aws/config"
-  echo "$s_url|$s_reg"
+  local config_file="$HOME/.aws/config"
+  [ ! -f "$config_file" ] && return 1
+
+  awk -v target="$target_session" '
+    function check_block() {
+      if (is_target) {
+        printf "%s|%s\n", s_url, s_reg
+        found = 1
+        exit
+      }
+    }
+    /^\[sso-session[ \t]+([^]]+)\]/ {
+      check_block()
+      match($0, /^\[sso-session[ \t]+([^]]+)\]/, m)
+      sname = m[1]
+      gsub(/[ \t\r\n]+$/, "", sname)
+      is_target = (sname == target)
+      s_url = ""
+      s_reg = ""
+      next
+    }
+    /^\[/ {
+      check_block()
+      is_target = 0
+      next
+    }
+    /^[ \t]*sso_start_url[ \t]*=/ {
+      if (is_target) {
+        split($0, a, "=")
+        gsub(/^[ \t]+|[ \t\r\n]+$/, "", a[2])
+        s_url = a[2]
+      }
+    }
+    /^[ \t]*sso_region[ \t]*=/ {
+      if (is_target) {
+        split($0, a, "=")
+        gsub(/^[ \t]+|[ \t\r\n]+$/, "", a[2])
+        s_reg = a[2]
+      }
+    }
+    END {
+      if (!found) check_block()
+    }
+  ' "$config_file"
 }
 
 _aws_get_session_account_id() {
   local target_session="$1"
-  local cur_sess="" cur_prof="" line
-  while IFS= read -r line; do
-    local clean="${line%$'\r'}"
-    if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
-      cur_prof="${BASH_REMATCH[1]%$'\r'}"
-      cur_sess=""
-    elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
-      local v="${BASH_REMATCH[1]%$'\r'}"
-      cur_sess="${v#"${v%%[![:space:]]*}"}"; cur_sess="${cur_sess%"${cur_sess##*[![:space:]]}"}"
-    elif [[ "$clean" =~ ^sso_account_id[[:space:]]*=[[:space:]]*(.+)$ ]]; then
-      local v="${BASH_REMATCH[1]%$'\r'}"
-      v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
-      if [ "$cur_sess" = "$target_session" ] && [[ "$v" =~ ^[0-9]{12}$ ]]; then
-        echo "$v"
-        return 0
-      fi
-    fi
-  done < "$HOME/.aws/config"
+  local config_file="$HOME/.aws/config"
+  [ ! -f "$config_file" ] && return 1
+
+  awk -v target="$target_session" '
+    function check_block() {
+      if (sess == target && acct ~ /^[0-9]{12}$/) {
+        print acct
+        found = 1
+        exit
+      }
+    }
+    /^\[/ {
+      check_block()
+      sess = ""
+      acct = ""
+      next
+    }
+    /^[ \t]*sso_session[ \t]*=/ {
+      split($0, a, "=")
+      gsub(/^[ \t]+|[ \t\r\n]+$/, "", a[2])
+      sess = a[2]
+    }
+    /^[ \t]*sso_account_id[ \t]*=/ {
+      split($0, a, "=")
+      gsub(/^[ \t]+|[ \t\r\n]+$/, "", a[2])
+      acct = a[2]
+    }
+    END {
+      if (!found) check_block()
+    }
+  ' "$config_file"
 }
 
 _aws_fetch_dynamic_roles() {
@@ -568,45 +606,84 @@ _aws_fetch_dynamic_roles() {
   s_reg=$(echo "$sess_info" | cut -d'|' -f2)
   [ -z "$s_reg" ] && s_reg="ap-south-1"
 
-  local f t_url t_val
-  for f in "$HOME/.aws/sso/cache"/*.json; do
-    [ ! -f "$f" ] && continue
+  local now
+  now=$(date -u +%s 2>/dev/null)
+
+  # Check primary cache for sso-session: sha1(session).json
+  local s_hash
+  s_hash=$(printf "%s" "$session" | tr -d '\r\n' | sha1sum 2>/dev/null | awk '{print $1}')
+  local primary_cache="$HOME/.aws/sso/cache/${s_hash}.json"
+
+  if [ -f "$primary_cache" ]; then
+    local exp t_val exp_sec
     if command -v jq >/dev/null 2>&1; then
-      t_url=$(jq -r '.startUrl // empty' "$f" 2>/dev/null)
-      t_val=$(jq -r '.accessToken // empty' "$f" 2>/dev/null)
+      exp=$(jq -r '.expiresAt // empty' "$primary_cache" 2>/dev/null)
+      t_val=$(jq -r '.accessToken // empty' "$primary_cache" 2>/dev/null)
     else
-      t_url=$(grep -o '"startUrl":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
-      t_val=$(grep -o '"accessToken":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
+      exp=$(grep -o '"expiresAt":[ ]*"[^"]*"' "$primary_cache" 2>/dev/null | head -n1 | cut -d'"' -f4)
+      t_val=$(grep -o '"accessToken":[ ]*"[^"]*"' "$primary_cache" 2>/dev/null | head -n1 | cut -d'"' -f4)
     fi
     if [ -n "$t_val" ]; then
-      if [ -z "$s_url" ] || [ "$t_url" = "$s_url" ]; then
+      if [ -n "$exp" ]; then
+        exp_sec=$(date -u -d "$exp" +%s 2>/dev/null)
+        if [ -z "$exp_sec" ] || [ "$exp_sec" -gt "$now" ]; then
+          token="$t_val"
+        fi
+      else
         token="$t_val"
-        break
       fi
     fi
-  done
+  fi
+
+  # Fallback: search cache files matching startUrl with non-expired token
+  if [ -z "$token" ]; then
+    local f t_url t_val exp exp_sec
+    for f in "$HOME/.aws/sso/cache"/*.json; do
+      [ ! -f "$f" ] && continue
+      if command -v jq >/dev/null 2>&1; then
+        t_url=$(jq -r '.startUrl // empty' "$f" 2>/dev/null)
+        t_val=$(jq -r '.accessToken // empty' "$f" 2>/dev/null)
+        exp=$(jq -r '.expiresAt // empty' "$f" 2>/dev/null)
+      else
+        t_url=$(grep -o '"startUrl":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
+        t_val=$(grep -o '"accessToken":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
+        exp=$(grep -o '"expiresAt":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
+      fi
+      [ -z "$t_val" ] && continue
+      [ -n "$s_url" ] && [ "$t_url" != "$s_url" ] && continue
+      if [ -n "$exp" ]; then
+        exp_sec=$(date -u -d "$exp" +%s 2>/dev/null)
+        [ -n "$exp_sec" ] && [ "$exp_sec" -le "$now" ] && continue
+      fi
+      token="$t_val"
+      break
+    done
+  fi
 
   [ -z "$token" ] && return 1
 
-  local acct_json
-  acct_json=$(command aws sso list-accounts --access-token "$token" --region "$s_reg" --output json 2>/dev/null)
-  if [ -n "$acct_json" ]; then
-    local pat
-    case "$session" in
-      *prod*) pat="prod" ;;
-      *eng*|*stage*|*smaitik*) pat="eng|stage" ;;
-      *lab*) pat="lab" ;;
-      *) pat="$session" ;;
-    esac
-    if command -v jq >/dev/null 2>&1; then
-      acct_id=$(echo "$acct_json" | jq -r --arg p "$pat" '.accountList[] | select(.accountName | test($p; "i")) | .accountId' 2>/dev/null | head -n1)
-      [ -z "$acct_id" ] && acct_id=$(echo "$acct_json" | jq -r '.accountList[0].accountId // empty' 2>/dev/null)
-    else
-      acct_id=$(echo "$acct_json" | grep -C2 -i "$pat" 2>/dev/null | grep -o '"accountId":[ ]*"[0-9]*"' | head -n1 | cut -d'"' -f4)
-      [ -z "$acct_id" ] && acct_id=$(echo "$acct_json" | grep -o '"accountId":[ ]*"[0-9]*"' | head -n1 | cut -d'"' -f4)
+  # Determine Account ID
+  acct_id=$(_aws_get_session_account_id "$session")
+  if [ -z "$acct_id" ]; then
+    local acct_json
+    acct_json=$(command aws sso list-accounts --access-token "$token" --region "$s_reg" --output json 2>/dev/null)
+    if [ -n "$acct_json" ]; then
+      local pat
+      case "$session" in
+        *prod*) pat="prod" ;;
+        *eng*|*stage*|*smaitik*) pat="eng|stage" ;;
+        *lab*) pat="lab" ;;
+        *) pat="$session" ;;
+      esac
+      if command -v jq >/dev/null 2>&1; then
+        acct_id=$(echo "$acct_json" | jq -r --arg p "$pat" '.accountList[] | select(.accountName | test($p; "i")) | .accountId' 2>/dev/null | head -n1)
+        [ -z "$acct_id" ] && acct_id=$(echo "$acct_json" | jq -r '.accountList[0].accountId // empty' 2>/dev/null)
+      else
+        acct_id=$(echo "$acct_json" | grep -C2 -i "$pat" 2>/dev/null | grep -o '"accountId":[ ]*"[0-9]*"' | head -n1 | cut -d'"' -f4)
+        [ -z "$acct_id" ] && acct_id=$(echo "$acct_json" | grep -o '"accountId":[ ]*"[0-9]*"' | head -n1 | cut -d'"' -f4)
+      fi
     fi
   fi
-  [ -z "$acct_id" ] && acct_id=$(_aws_get_session_account_id "$session")
 
   [ -z "$acct_id" ] && return 1
 
@@ -626,6 +703,7 @@ _aws_ensure_profile_for_role() {
   local config_file="$HOME/.aws/config"
   local acct_id
   acct_id=$(_aws_get_session_account_id "$session")
+
   if [ -z "$region" ]; then
     case "$session" in
       smaitik|smaitik-prod) region="us-east-2" ;;
@@ -633,12 +711,54 @@ _aws_ensure_profile_for_role() {
     esac
   fi
 
-  local prof_name="${session}-${role_name}"
+  # Check if a profile with sso_session == session and sso_role_name == role_name already exists
+  local existing_prof=""
+  local cur_p="" cur_s="" cur_r="" l
+  while IFS= read -r l; do
+    local clean="${l%$'\r'}"
+    if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
+      if [ "$cur_s" = "$session" ] && [ "$cur_r" = "$role_name" ] && [ -n "$cur_p" ]; then
+        existing_prof="$cur_p"
+        break
+      fi
+      cur_p="${BASH_REMATCH[1]%$'\r'}"
+      cur_s=""
+      cur_r=""
+    elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_s="${BASH_REMATCH[1]%$'\r'}"
+      cur_s="${cur_s#"${cur_s%%[![:space:]]*}"}"
+      cur_s="${cur_s%"${cur_s##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^sso_role_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
+      cur_r="${BASH_REMATCH[1]%$'\r'}"
+      cur_r="${cur_r#"${cur_r%%[![:space:]]*}"}"
+      cur_r="${cur_r%"${cur_r##*[![:space:]]}"}"
+    elif [[ "$clean" =~ ^\[.*\]$ ]]; then
+      if [ "$cur_s" = "$session" ] && [ "$cur_r" = "$role_name" ] && [ -n "$cur_p" ]; then
+        existing_prof="$cur_p"
+        break
+      fi
+      cur_p=""
+      cur_s=""
+      cur_r=""
+    fi
+  done < "$config_file"
+  if [ -z "$existing_prof" ] && [ "$cur_s" = "$session" ] && [ "$cur_r" = "$role_name" ] && [ -n "$cur_p" ]; then
+    existing_prof="$cur_p"
+  fi
 
+  if [ -n "$existing_prof" ]; then
+    echo "$existing_prof"
+    return 0
+  fi
+
+  local prof_name="${session}-${role_name}"
   if grep -q "^\[profile[[:space:]]\+${prof_name}\]" "$config_file" 2>/dev/null; then
     echo "$prof_name"
     return 0
   fi
+
+  [ -z "$acct_id" ] && _aws_ensure_account_id "$session"
+  acct_id=$(_aws_get_session_account_id "$session")
 
   {
     echo ""
@@ -655,103 +775,78 @@ _aws_ensure_profile_for_role() {
 
 _aws_pick_profile() {
   local target_session="$1"
-  local -a profiles labels
-  local cur_profile="" cur_session="" cur_role="" line
+  local -a role_names=()
+  local cur_p="" cur_s="" cur_r="" line
 
-  # Dynamic role fetching for any active/target session
+  # 1. Fetch dynamic roles from AWS SSO
   if [ -n "$target_session" ]; then
-    local -a dyn_roles=()
     while IFS= read -r r; do
-      [ -n "$r" ] && dyn_roles+=("$r")
-    done < <(_aws_fetch_dynamic_roles "$target_session" 2>/dev/null)
-
-    if [ ${#dyn_roles[@]} -gt 0 ]; then
-      for r in "${dyn_roles[@]}"; do
-        profiles+=("$r")
-        labels+=("$r")
-      done
-      labels+=("[Abort]")
-      profiles+=("__ABORT__")
-
-      local idx=0 total=${#labels[@]} ESC=$'\033' i
-      tput civis >/dev/tty 2>/dev/null
-      trap 'tput cnorm >/dev/tty 2>/dev/null' RETURN INT TERM
-
-      for i in "${!labels[@]}"; do
-        [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2 || printf "  %s\n" "${labels[$i]}" >&2
-      done
-
-      while true; do
-        IFS= read -rsn1 key
-        [[ "$key" == "$ESC" ]] && { IFS= read -rsn2 -t 0.1 seq; key="$ESC$seq"; }
-        case "$key" in
-          "${ESC}[A"|"k") (( idx = (idx - 1 + total) % total )) ;;
-          "${ESC}[B"|"j") (( idx = (idx + 1) % total )) ;;
-          "") break ;;
-          "q"|$'\x03') tput cnorm >/dev/tty 2>/dev/null; printf "\n" >&2; return 1 ;;
-        esac
-        printf "\e[%dA" "$total" >&2
-        for i in "${!labels[@]}"; do
-          [ "$i" -eq "$idx" ] && printf "\e[32m> %s\e[0m\n" "${labels[$i]}" >&2 || printf "  %s\n" "${labels[$i]}" >&2
+      if [ -n "$r" ]; then
+        local found=0 ex
+        for ex in "${role_names[@]}"; do
+          [ "$ex" = "$r" ] && { found=1; break; }
         done
-      done
-
-      tput cnorm >/dev/tty 2>/dev/null
-      printf "\n" >&2
-      if [ "${profiles[$idx]}" = "__ABORT__" ]; then
-        echo "Selection aborted." >&2
-        return 1
+        [ $found -eq 0 ] && role_names+=("$r")
       fi
-
-      local sel_role="${profiles[$idx]}"
-      local def_region
-      case "$target_session" in
-        smaitik|smaitik-prod) def_region="us-east-2" ;;
-        *) def_region="ap-south-1" ;;
-      esac
-      _aws_ensure_profile_for_role "$target_session" "$sel_role" "$def_region"
-      return 0
-    fi
+    done < <(_aws_fetch_dynamic_roles "$target_session" 2>/dev/null)
   fi
 
-  _record_profile() {
-    if [ -n "$cur_profile" ]; then
-      if [ -z "$target_session" ] || [ "$cur_session" = "$target_session" ]; then
-        profiles+=("$cur_profile")
-        labels+=("${cur_role:-$cur_profile}")
-      fi
-    fi
-  }
-
+  # 2. Add roles configured in ~/.aws/config for this session
   while IFS= read -r line; do
     local clean="${line%$'\r'}"
     if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
-      _record_profile
-      cur_profile="${BASH_REMATCH[1]%$'\r'}"
-      cur_session=""
-      cur_role=""
+      if [ "$cur_s" = "$target_session" ] && [ -n "$cur_r" ]; then
+        local found=0 ex
+        for ex in "${role_names[@]}"; do
+          [ "$ex" = "$cur_r" ] && { found=1; break; }
+        done
+        [ $found -eq 0 ] && role_names+=("$cur_r")
+      fi
+      cur_p="${BASH_REMATCH[1]%$'\r'}"
+      cur_s=""
+      cur_r=""
     elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
-      cur_session="${BASH_REMATCH[1]%$'\r'}"
-      cur_session="${cur_session#"${cur_session%%[![:space:]]*}"}"
-      cur_session="${cur_session%"${cur_session##*[![:space:]]}"}"
+      cur_s="${BASH_REMATCH[1]%$'\r'}"
+      cur_s="${cur_s#"${cur_s%%[![:space:]]*}"}"
+      cur_s="${cur_s%"${cur_s##*[![:space:]]}"}"
     elif [[ "$clean" =~ ^sso_role_name[[:space:]]*=[[:space:]]*(.+)$ ]]; then
-      cur_role="${BASH_REMATCH[1]%$'\r'}"
-      cur_role="${cur_role#"${cur_role%%[![:space:]]*}"}"
-      cur_role="${cur_role%"${cur_role##*[![:space:]]}"}"
+      cur_r="${BASH_REMATCH[1]%$'\r'}"
+      cur_r="${cur_r#"${cur_r%%[![:space:]]*}"}"
+      cur_r="${cur_r%"${cur_r##*[![:space:]]}"}"
     elif [[ "$clean" =~ ^\[.*\]$ ]]; then
-      _record_profile
-      cur_profile=""
-      cur_session=""
-      cur_role=""
+      if [ "$cur_s" = "$target_session" ] && [ -n "$cur_r" ]; then
+        local found=0 ex
+        for ex in "${role_names[@]}"; do
+          [ "$ex" = "$cur_r" ] && { found=1; break; }
+        done
+        [ $found -eq 0 ] && role_names+=("$cur_r")
+      fi
+      cur_p=""
+      cur_s=""
+      cur_r=""
     fi
   done < "$HOME/.aws/config"
-  _record_profile
-  unset -f _record_profile
+  if [ "$cur_s" = "$target_session" ] && [ -n "$cur_r" ]; then
+    local found=0 ex
+    for ex in "${role_names[@]}"; do
+      [ "$ex" = "$cur_r" ] && { found=1; break; }
+    done
+    [ $found -eq 0 ] && role_names+=("$cur_r")
+  fi
 
-  [ ${#labels[@]} -eq 0 ] && { echo "No profiles matching active session in ~/.aws/config" >&2; return 1; }
+  if [ ${#role_names[@]} -eq 0 ]; then
+    echo "No roles found for session '$target_session'." >&2
+    return 1
+  fi
 
+  local -a items=() labels=()
+  local r
+  for r in "${role_names[@]}"; do
+    items+=("$r")
+    labels+=("$r")
+  done
   labels+=("[Abort]")
-  profiles+=("__ABORT__")
+  items+=("__ABORT__")
 
   local idx=0 total=${#labels[@]} ESC=$'\033' i
   tput civis >/dev/tty 2>/dev/null
@@ -778,11 +873,19 @@ _aws_pick_profile() {
 
   tput cnorm >/dev/tty 2>/dev/null
   printf "\n" >&2
-  if [ "${profiles[$idx]}" = "__ABORT__" ]; then
+  if [ "${items[$idx]}" = "__ABORT__" ]; then
     echo "Selection aborted." >&2
     return 1
   fi
-  echo "${profiles[$idx]}"
+
+  local sel_role="${items[$idx]}"
+  local def_region
+  case "$target_session" in
+    smaitik|smaitik-prod) def_region="us-east-2" ;;
+    *) def_region="ap-south-1" ;;
+  esac
+  _aws_ensure_profile_for_role "$target_session" "$sel_role" "$def_region"
+  return 0
 }
 
 _aws_get_active_sessions() {
@@ -800,7 +903,7 @@ _aws_get_active_sessions() {
 
   local s s_hash cache_file t_exp exp_sec is_active
   for s in "${config_sessions[@]}"; do
-    s_hash=$(printf "%s" "$s" | sha1sum 2>/dev/null | cut -d' ' -f1)
+    s_hash=$(printf "%s" "$s" | tr -d '\r\n' | sha1sum 2>/dev/null | awk '{print $1}')
     cache_file="$HOME/.aws/sso/cache/${s_hash}.json"
     is_active=0
 
@@ -811,6 +914,27 @@ _aws_get_active_sessions() {
         if [ -n "$exp_sec" ] && [ "$exp_sec" -gt "$now" ]; then
           is_active=1
         fi
+      fi
+    fi
+
+    if [ $is_active -eq 0 ]; then
+      local s_info s_url f t_url
+      s_info=$(_aws_get_session_details "$s")
+      s_url=$(echo "$s_info" | cut -d'|' -f1)
+      if [ -n "$s_url" ]; then
+        for f in "$HOME/.aws/sso/cache"/*.json; do
+          [ ! -f "$f" ] && continue
+          t_url=$(grep -o '"startUrl":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
+          [ "$t_url" != "$s_url" ] && continue
+          t_exp=$(grep -o '"expiresAt":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
+          if [ -n "$t_exp" ]; then
+            exp_sec=$(date -u -d "$t_exp" +%s 2>/dev/null)
+            if [ -n "$exp_sec" ] && [ "$exp_sec" -gt "$now" ]; then
+              is_active=1
+              break
+            fi
+          fi
+        done
       fi
     fi
 
@@ -900,6 +1024,7 @@ _aws_pick_logout_session() {
 _aws_sso_login() {
   local sess="$1"
   local status=0
+  printf '\e[?1004l' 2>/dev/null
   PYTHONUNBUFFERED=1 command aws sso login --sso-session "$sess" 2>&1 | while IFS= read -r line; do
     if [[ "$line" =~ ^gio: ]]; then
       continue
@@ -912,6 +1037,7 @@ _aws_sso_login() {
     fi
   done
   status="${PIPESTATUS[0]}"
+  printf '\e[?1004l' 2>/dev/null
   return "$status"
 }
 
@@ -957,7 +1083,9 @@ aws() {
   case "$1" in
     login)
       shift
-      local session="$*"
+      local session="$1"
+      local opt_role="$2"
+      shift 2 2>/dev/null || shift 1 2>/dev/null || true
       local resolved_s
       resolved_s=$(_aws_resolve_session "$session")
       [ -n "$resolved_s" ] && session="$resolved_s"
@@ -971,7 +1099,28 @@ aws() {
         echo "Login successful for session: $session"
         echo "$session" > "$HOME/.aws/last-session"
         echo ""
-        aws switch "$session"
+        if [ -n "$opt_role" ]; then
+          aws switch "$session" "$opt_role"
+        else
+          local disp_name
+          disp_name=$(_aws_get_display_name "$session")
+          echo "Select role under $disp_name account:"
+          echo ""
+          local selected_prof
+          if selected_prof=$(_aws_pick_profile "$session"); then
+            selected_prof="${selected_prof%$'\r'}"
+            if [ -n "$selected_prof" ]; then
+              local p_info role_display reg
+              p_info=$(_aws_get_profile_info "$selected_prof")
+              role_display=$(echo "$p_info" | cut -d'|' -f2)
+              reg=$(echo "$p_info" | cut -d'|' -f3)
+              [ -z "$role_display" ] && role_display="$selected_prof"
+              _aws_apply_profile "$selected_prof" "$session" "$reg" "$role_display" 0
+            fi
+          else
+            echo "No role selected. SSO session is active. Run 'aws switch' when ready."
+          fi
+        fi
       else
         echo "Login failed. Check session name or network."
         return 1
@@ -987,11 +1136,14 @@ aws() {
         read -r confirm </dev/tty
         case "$confirm" in
           [yY]|[yY][eE][sS])
+            command aws sso logout 2>/dev/null
             rm -f "$HOME/.aws/sso/cache"/*.json 2>/dev/null
             rm -f "$HOME/.aws/cli/cache"/*.json 2>/dev/null
             rm -f "$HOME/.kube/config-"* 2>/dev/null
             rm -f "$HOME/.aws/last-"* "$HOME/.aws/default-"* 2>/dev/null
-            unset AWS_PROFILE KUBECONFIG
+            unset AWS_PROFILE KUBECONFIG AWS_DEFAULT_PROFILE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
+            _aws_last_synced_profile=""
+            printf '\e[?1004l' 2>/dev/null
             echo -e "\e[32m[OK]\e[0m Successfully wiped all AWS sessions, profiles, and kubeconfigs."
             return 0
             ;;
@@ -1022,26 +1174,64 @@ aws() {
       _disp=$(_aws_get_display_name "$session")
       echo "Logging out of SSO session: $_disp"
 
+      # 1. AWS CLI native logout
+      command aws sso logout --sso-session "$session" 2>/dev/null
+
+      # 2. Invalidate session cache and matching startUrl cache
       local s_hash
-      s_hash=$(printf "%s" "$session" | sha1sum 2>/dev/null | cut -d' ' -f1)
+      s_hash=$(printf "%s" "$session" | tr -d '\r\n' | sha1sum 2>/dev/null | awk '{print $1}')
       if [ -n "$s_hash" ]; then
         rm -f "$HOME/.aws/sso/cache/${s_hash}.json"
       fi
 
+      local sess_info s_url
+      sess_info=$(_aws_get_session_details "$session")
+      s_url=$(echo "$sess_info" | cut -d'|' -f1)
+      if [ -n "$s_url" ]; then
+        local f t_url
+        for f in "$HOME/.aws/sso/cache"/*.json; do
+          [ ! -f "$f" ] && continue
+          t_url=$(grep -o '"startUrl":[ ]*"[^"]*"' "$f" 2>/dev/null | head -n1 | cut -d'"' -f4)
+          if [ "$t_url" = "$s_url" ]; then
+            rm -f "$f"
+          fi
+        done
+      fi
+
+      # 3. Wipe STS temporary credential cache so credentials don't linger
+      rm -f "$HOME/.aws/cli/cache"/*.json 2>/dev/null
+
+      # 4. Remove session kubeconfigs
       rm -f "$HOME/.kube/config-${session}-"*
 
+      # 5. Clear environment variables if active profile belonged to this session
+      local clear_env=0
       if [ -n "$AWS_PROFILE" ]; then
         local cur_tab_sess
         cur_tab_sess=$(_aws_get_profile_info "$AWS_PROFILE" | cut -d'|' -f1)
         if [ "$cur_tab_sess" = "$session" ]; then
-          unset AWS_PROFILE
-          unset KUBECONFIG
-          rm -f "$HOME/.aws/last-profile" "$HOME/.aws/last-kubeconfig"
+          clear_env=1
+        fi
+      fi
+      if [ $clear_env -eq 1 ]; then
+        unset AWS_PROFILE KUBECONFIG AWS_DEFAULT_PROFILE
+        rm -f "$HOME/.aws/last-profile" "$HOME/.aws/last-kubeconfig"
+      fi
+
+      # 6. Check default profile
+      local def_prof
+      def_prof=$(cat "$HOME/.aws/default-profile" 2>/dev/null | tr -d $'\r\n')
+      if [ -n "$def_prof" ]; then
+        local def_sess
+        def_sess=$(_aws_get_profile_info "$def_prof" | cut -d'|' -f1)
+        if [ "$def_sess" = "$session" ]; then
+          rm -f "$HOME/.aws/default-profile" "$HOME/.aws/default-kubeconfig"
         fi
       fi
 
+      # 7. Update last session
       local last_s
-      last_s=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r')
+      last_s=$(cat "$HOME/.aws/last-session" 2>/dev/null | tr -d $'\r\n')
       if [ "$last_s" = "$session" ]; then
         local remaining_sess
         remaining_sess=$(_aws_get_active_sessions | head -n1)
@@ -1052,6 +1242,8 @@ aws() {
         fi
       fi
 
+      _aws_last_synced_profile=""
+      printf '\e[?1004l' 2>/dev/null
       echo "Logout successful for: $_disp"
       return 0
       ;;
@@ -1258,45 +1450,18 @@ aws() {
             return 1
           fi
         else
-          local -a sess_profs=()
-          local cur_p="" cur_s="" l
-          while IFS= read -r l; do
-            local clean="${l%$'\r'}"
-            if [[ "$clean" =~ ^\[profile[[:space:]]+([^]]+)\]$ ]]; then
-              cur_p="${BASH_REMATCH[1]%$'\r'}"
-              cur_s=""
-            elif [[ "$clean" =~ ^sso_session[[:space:]]*=[[:space:]]*(.+)$ ]]; then
-              cur_s="${BASH_REMATCH[1]%$'\r'}"
-              cur_s="${cur_s#"${cur_s%%[![:space:]]*}"}"
-              cur_s="${cur_s%"${cur_s##*[![:space:]]}"}"
-              if [ "$cur_s" = "$resolved_sess" ] && [ -n "$cur_p" ]; then
-                sess_profs+=("$cur_p")
-              fi
-            fi
-          done < "$HOME/.aws/config"
-
-          if [ ${#sess_profs[@]} -eq 1 ]; then
-            local selected="${sess_profs[0]}"
-            local prof_info role_display reg
-            prof_info=$(_aws_get_profile_info "$selected")
-            role_display=$(echo "$prof_info" | cut -d'|' -f2)
-            reg=$(echo "$prof_info" | cut -d'|' -f3)
-            [ -z "$role_display" ] && role_display="$selected"
-            _aws_apply_profile "$selected" "$resolved_sess" "$reg" "$role_display" "$save_global"
-            return $?
-          else
-            echo "Select role under $disp_name account:"
-            echo ""
-            local selected
-            selected=$(_aws_pick_profile "$resolved_sess") || return 1
-            local prof_info role_display reg
-            prof_info=$(_aws_get_profile_info "$selected")
-            role_display=$(echo "$prof_info" | cut -d'|' -f2)
-            reg=$(echo "$prof_info" | cut -d'|' -f3)
-            [ -z "$role_display" ] && role_display="$selected"
-            _aws_apply_profile "$selected" "$resolved_sess" "$reg" "$role_display" "$save_global"
-            return $?
-          fi
+          echo "Select role under $disp_name account:"
+          echo ""
+          local selected
+          selected=$(_aws_pick_profile "$resolved_sess") || return 1
+          selected="${selected%$'\r'}"
+          local prof_info role_display reg
+          prof_info=$(_aws_get_profile_info "$selected")
+          role_display=$(echo "$prof_info" | cut -d'|' -f2)
+          reg=$(echo "$prof_info" | cut -d'|' -f3)
+          [ -z "$role_display" ] && role_display="$selected"
+          _aws_apply_profile "$selected" "$resolved_sess" "$reg" "$role_display" "$save_global"
+          return $?
         fi
       fi
 
@@ -1534,21 +1699,11 @@ _aws_sync_last_state() {
   fi
 }
 
-_aws_setup_terminal_tab_sync() {
-  if [ -t 0 ] && [ -n "$WT_SESSION" -o -n "$WSL_DISTRO_NAME" -o "$TERM_PROGRAM" = "WindowsTerminal" ]; then
-    bind -x '"\e[I": _aws_sync_last_state' 2>/dev/null
-    bind '"\e[O": ""' 2>/dev/null
-    printf '\e[?1004h' 2>/dev/null
-    if [[ ! "$PS0" =~ 1004l ]]; then
-      PS0="\[\e[?1004l\]${PS0:+ $PS0}"
-    fi
-  fi
-}
-
-_aws_setup_terminal_tab_sync
+# Disable xterm focus tracking to eliminate stray [O and [I escape characters
+printf '\e[?1004l' 2>/dev/null
 
 if [[ ! "$PROMPT_COMMAND" =~ _aws_sync_last_state ]]; then
-  PROMPT_COMMAND="_aws_sync_last_state; _aws_setup_terminal_tab_sync${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+  PROMPT_COMMAND="_aws_sync_last_state${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 fi
 
 aws-stage() { aws use stage "$@"; }
